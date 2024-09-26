@@ -1,0 +1,1 @@
+PROJECT_NAME = "princesse_bd_backend"
