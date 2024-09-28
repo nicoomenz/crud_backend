@@ -11,10 +11,10 @@ class ClientPayer(models.Model):
         ('CONSUMIDORFINAL', 'CONSUMIDOR FINAL')
     )
     dni = models.CharField(_("DNI"), max_length=50)
+    cuit = models.CharField(_("CUIT"), max_length=50)
     first_name = models.CharField(_('Nombre'), max_length=100)
     last_name = models.CharField(_('Apellido'), max_length=100)
     phone = models.CharField(_('Telefono'), max_length=25, blank=True, null=True)
-    cuit = models.CharField(_("DNI"), max_length=50)
     iva = models.CharField(max_length=30, choices=IVA_CHOICES, default=IVA_CHOICES[0][0])
     created_at = models.DateTimeField(auto_now_add=True)
     def __str__(self):
