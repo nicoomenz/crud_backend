@@ -1,29 +1,8 @@
 from django.contrib import admin
 from django.db import models
-from clothes.models import *
+from payment.models import *
 # Register your models here.
 
-@admin.register(Talle)
-class TalleAdmin(admin.ModelAdmin):
-    list_display = ('nombre',)
-
-@admin.register(Marca)
-class MarcaAdmin(admin.ModelAdmin):
-    list_display = ('nombre',)
-
-@admin.register(Tela)
-class TelaAdmin(admin.ModelAdmin):
-    list_display = ('nombre',)
-
-
-@admin.register(Color)
-class ColorAdmin(admin.ModelAdmin):
-    list_display = ('nombre', 'tipo_prenda')
-
-@admin.register(Saco)
-class SacoAdmin(admin.ModelAdmin):
-    list_display = ('tipo',)
-
-@admin.register(Pantalon)
-class PantalonAdmin(admin.ModelAdmin):
-    list_display = ('tipo',)
+@admin.register(Payment)
+class PaymentAdmin(admin.ModelAdmin):
+    list_display = ('payment_id', 'small_amount', 'total_amount', 'start_date', 'end_date')

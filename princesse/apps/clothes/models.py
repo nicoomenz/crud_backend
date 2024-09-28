@@ -32,11 +32,16 @@ class Color(models.Model):
     def __str__(self):
         return f"{self.nombre} ({self.get_tipo_prenda_display()})"
 class PrendaBase(models.Model):
+    STATUS_CHOICES = (
+        ('DISPONIBLE', 'DISPONIBLE'),
+        ('ALQUILADO', 'ALQUILADO'),
+    )
+
     marca = models.ForeignKey(Marca, on_delete=models.CASCADE, blank=True, null=True)
     color = models.ForeignKey(Color, on_delete=models.CASCADE)
     tela = models.ForeignKey(Tela, on_delete=models.CASCADE, blank=True, null=True)
     talle = models.ForeignKey(Talle, on_delete=models.CASCADE)
-
+    status = models.CharField(('Clothes Status'), max_length=30, choices=STATUS_CHOICES, default=STATUS_CHOICES[0][0])
     class Meta:
         abstract = True
 
