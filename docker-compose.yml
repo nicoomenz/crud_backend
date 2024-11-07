@@ -4,26 +4,19 @@ services:
   db:
     image: postgres:latest
     restart: always
-    environment:
-      POSTGRES_USER: root
-      POSTGRES_PASSWORD: conico
-      POSTGRES_DB: conico
+    env_file:
+      - .env
     volumes:
       - ./db_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
   
   web:
-    build: ./ # Ruta donde está tu Dockerfile para la app web
+    build: .
     command: python princesse/manage.py runserver 0.0.0.0:8000 --settings=settings.local
     volumes:
-      - ./:/app
+      - .:/code
     ports:
-      - "8000:8000" # Expone la web en el puerto 8000
+      - "8000:8000"
     depends_on:
-      - db # Asegura que la base de datos esté corriendo antes de iniciar la web
-    environment:
-      - DB_HOST=db
-      - DB_NAME=conico
-      - DB_USER=root
-      - DB_PASSWORD=changeme
+      - db

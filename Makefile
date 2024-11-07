@@ -1,9 +1,9 @@
 # Constants
 SRC=princesse_bd_backend
-API_NAME=princesse_bd_backend_db_1
+API_NAME=princesse_bd_backend_web_1
 
 # Commands
-compose_cmd = docker-compose -f ./docker-compose.yml --env-file=environment
+compose_cmd = docker-compose -f ./docker-compose.yml --env-file=.env
 down_cmd = $(compose_cmd) down --remove-orphans
 exec_cmd = docker exec -it $(API_NAME)
 attach_cmd = docker attach $(API_NAME)
@@ -23,7 +23,7 @@ pdb:
 	@$(attach_cmd)
 
 logs:
-	@$(compose_cmd) logs --tail=all -f | grep $(API_NAME)
+	docker logs --tail=all -f $(API_NAME)
 
 start:
 	@$(compose_cmd) start
@@ -38,7 +38,7 @@ up:
 	@$(compose_cmd) up -d
 
 build:
-	@$(compose_cmd) build
+	@$(compose_cmd) build --no-cache
 
 celery:
 	docker exec -w /code/$(SRC) $(API_NAME) ./celeryd.sh

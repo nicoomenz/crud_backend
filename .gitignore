@@ -10,6 +10,7 @@ db_data/
 
 #environments
 venv/
+.env
 
 # Compiled Java class files
 *.class

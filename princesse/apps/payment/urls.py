@@ -1,10 +1,10 @@
 from rest_framework import routers
 
-from user.views import *
+from payment.views import *
 
 
 router = routers.SimpleRouter()
-router.register(r'', ClientPayerViewSet, basename='clientsPayer')
+router.register(r'', PaymentsViewSet, basename='recibos')
 
 urlpatterns = []
 urlpatterns += router.urls
