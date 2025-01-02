@@ -11,6 +11,16 @@ services:
     ports:
       - "5432:5432"
   
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "admin@admin.com"
+      PGADMIN_DEFAULT_PASSWORD: "admin"
+    ports:
+      - "80:80"
+    depends_on:
+      - db
+  
   web:
     build: .
     command: python princesse/manage.py runserver 0.0.0.0:8000 --settings=settings.local
@@ -18,5 +28,7 @@ services:
       - .:/code
     ports:
       - "8000:8000"
+    stdin_open: true   # Habilita stdin
+    tty: true          # Mantiene la terminal abierta
     depends_on:
       - db

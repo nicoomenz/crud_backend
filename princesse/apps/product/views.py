@@ -3,6 +3,7 @@ from product.models import *
 from product.serializers import *
 from rest_framework import viewsets, status
 from rest_framework.response import Response
+from rest_framework.decorators import action
 # Create your views here.
 
 class ProductosViewSet(viewsets.ModelViewSet):
@@ -20,6 +21,42 @@ class ProductosViewSet(viewsets.ModelViewSet):
         # Serializar y devolver la lista de productos creados
         response_data = ProductoSerializer(productos, many=True).data
         return Response(response_data, status=status.HTTP_201_CREATED)
+    
+    @action(detail=False, methods=['get'])
+    def agrupados(self, request):
+        productos = Producto.objects.prefetch_related('talle', 'color', 'categoria', 'marca', 'tela')
+        
+        # Agrupa los productos por categorías, colores y talles
+        agrupados = {}
+        for producto in productos:
+            key = (producto.categoria, producto.marca)
+            if key not in agrupados:
+                agrupados[key] = {
+                    'productos': [],
+                    'precio': producto.precio,
+                    'tela': producto.tela,
+                }
+            agrupados[key]['productos'].append({
+            'id': producto.id,
+            'producto': producto
+        })
+
+        # Serializa la respuesta
+        data = [
+            ProductoCompactoSerializer({
+                'categoria': key[0],
+                'marca': key[1],
+                'productos': value['productos'],
+                'precio': value['precio'],
+                'tela': value['tela'],
+            }).data
+            for key, value in agrupados.items()
+        ]
+        return Response(data, status=status.HTTP_200_OK)
+
+class ProductosAmountsViewSet(viewsets.ModelViewSet):
+    serializer_class = PrecioSerializer
+    queryset =  Precio.objects.all()
 
 class CategoriasViewSet(viewsets.ModelViewSet):
 

@@ -1,0 +1,29 @@
+[
+    {
+        "model": "user.User",
+        "pk": 1,
+        "fields": {
+          "password": "pbkdf2_sha256$260000$Gwpp5KrNtkxS5jePWSYEzO$mzCWK9Ci54qfYRowR1qlxxOUsvIbIKv8Qk7hrXOjx1I=",
+          "last_login": "2022-04-05T20:26:02.386",
+          "is_superuser": true,
+          "username": "admin",
+          "first_name": "-",
+          "last_name": "-",
+          "phone": "-",
+          "email": "nicoomenz@gmail.com",
+          "is_staff": true,
+          "is_active": true,
+          "change_password": false,
+          "date_joined": "2022-04-05T20:25:11.866",
+          "groups": [1],
+          "user_permissions": []
+        }
+      },
+      {
+        "model": "auth.group",
+        "pk": 1,
+        "fields": {
+          "name": "super_admin"
+        }
+      }
+]
