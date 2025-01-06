@@ -5,4 +5,8 @@ from payment.models import *
 
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ('payment_id', 'small_amount', 'total_amount', 'start_date', 'end_date')
+    list_display = ('payment_id', 'pick_up_date', 'return_date', 'client', 'small_amount', 'total_amount')
+
+@admin.register(PaymentProduct)
+class PaymentProductAdmin(admin.ModelAdmin):
+    list_display = ('payment', 'producto', 'cantidad')

@@ -25,7 +25,11 @@ class ColorAdmin(admin.ModelAdmin):
 
 @admin.register(Producto)
 class ProductoAdmin(admin.ModelAdmin):
-    list_display = ('id', 'nombre', 'color', 'talle',)
+    list_display = ('id', 'categoria', 'marca', 'color', 'talle', 'cantidad')
+
+@admin.register(Precio)
+class ProductoAdmin(admin.ModelAdmin):
+    list_display = ('id', 'categoria', 'marca', 'efectivo', 'debito', 'credito')
 
 @admin.register(Combo)
 class ComboAdmin(admin.ModelAdmin):

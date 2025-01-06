@@ -1,9 +1,8 @@
 #!/bin/sh
 set -e
+cd ${PROJECT_NAME}
 
-echo "Applying database migrations..."
-python princesse/manage.py makemigrations --settings=settings.local
-python princesse/manage.py migrate --settings=settings.local
-
-# Inicia el servidor
-exec "$@"
+if [ ${RUN_LOAD_DATA} = "True" ]; then
+    echo "===============Load User examples==============="
+    python3 manage.py loaddata fixtures/*.json --settings=${DJANGO_SETTINGS_MODULE}
+fi
