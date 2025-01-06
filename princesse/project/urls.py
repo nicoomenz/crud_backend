@@ -4,9 +4,11 @@ from apps.user.views import UserLoginView, UserLogoutView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('recibos/', include('payment.urls')),
-    path('productos/', include('product.urls')),
-    path('usuarios/', include('user.urls')),
-    path('login/', UserLoginView.as_view()),
-    path('logout/', UserLogoutView.as_view()),
+    path('api/', include([
+        path('recibos/', include('payment.urls')),
+        path('productos/', include('product.urls')),
+        path('usuarios/', include('user.urls')),
+        path('login/', UserLoginView.as_view()),
+        path('logout/', UserLogoutView.as_view()),
+    ])),
 ]
