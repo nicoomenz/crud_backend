@@ -51,6 +51,24 @@ class Precio(models.Model):
         if self.marca:
             return f"{self.categoria.nombre} - {self.marca.nombre} - Precios"
         return f"{self.categoria.nombre} - Precios"
+    
+    # Método para actualizar precios
+    @classmethod
+    def actualizar_precio(cls, categoria_id, marca_id=None, efectivo=None, debito=None, credito=None):
+        try:
+            precio_instance = cls.objects.get(categoria_id=categoria_id, marca_id=marca_id)
+            
+            if efectivo is not None:
+                precio_instance.efectivo = efectivo
+            if debito is not None:
+                precio_instance.debito = debito
+            if credito is not None:
+                precio_instance.credito = credito
+            
+            precio_instance.save()
+            return precio_instance
+        except cls.DoesNotExist:
+            raise ValueError("No se encontró un precio para la categoría y marca especificadas.")
 
 class Producto(models.Model):
 

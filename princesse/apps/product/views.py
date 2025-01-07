@@ -54,9 +54,64 @@ class ProductosViewSet(viewsets.ModelViewSet):
         ]
         return Response(data, status=status.HTTP_200_OK)
 
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Precio
+from .serializers import PrecioSerializer
+
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Precio
+from .serializers import PrecioSerializer
+
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.decorators import action
+from .models import Precio
+from .serializers import PrecioSerializer
+from rest_framework.exceptions import NotFound
+
+
 class ProductosAmountsViewSet(viewsets.ModelViewSet):
     serializer_class = PrecioSerializer
-    queryset =  Precio.objects.all()
+    queryset = Precio.objects.all()
+
+    def get_queryset(self):
+        # Obtén los datos del cuerpo de la solicitud
+        categoria = self.request.query_params.get('categoria', None)
+        marca = self.request.query_params.get('marca', None)
+
+        if not categoria:
+            return Precio.objects.all()
+
+        try:
+            queryset = Precio.objects.get(categoria=categoria, marca=marca)
+        except Precio.DoesNotExist:
+            raise NotFound("No se encontraron productos con esos parámetros.")
+
+        # Filtra los precios por marca si se proporciona
+        
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+
+        # Si el queryset es un solo objeto (no una lista), lo serializamos directamente
+        if isinstance(queryset, Precio):
+            serializer = self.get_serializer(queryset)
+            return Response(serializer.data)
+
+        # Si el queryset es una lista y no hay resultados, devolvemos una lista vacía
+        if not queryset.exists():
+            return Response([], status=status.HTTP_200_OK)
+
+        # Si hay resultados, serializamos y devolvemos la respuesta
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+
+
 
 class CategoriasViewSet(viewsets.ModelViewSet):
 

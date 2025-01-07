@@ -168,8 +168,30 @@ class ProductoSerializer(serializers.ModelSerializer):
         return productos
 
     def update(self, instance, validated_data):
-        # Actualizar como en el ejemplo anterior
+
+        categoria_id = validated_data.get("categoria")
+        marca_id = validated_data.get("marca", None)
+        efectivo = validated_data.get("efectivo")
+        debito = validated_data.get("debito")
+        credito = validated_data.get("credito")
+         # Actualizar como en el ejemplo anterior
         validated_data.pop('variantes', None)
+        
+
+        # Delegar la lógica de actualización al modelo Precio
+        if categoria_id:
+            try:
+
+                Precio.actualizar_precio(
+                    categoria_id=categoria_id,
+                    marca_id=marca_id,
+                    efectivo=efectivo,
+                    debito=debito,
+                    credito=credito,
+                )
+            except ValueError as e:
+                raise serializers.ValidationError({"error": str(e)})
+            
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
