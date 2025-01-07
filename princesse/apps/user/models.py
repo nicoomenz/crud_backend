@@ -6,8 +6,8 @@ from rest_framework.authtoken.models import Token
 class User(AbstractUser):
     first_name = models.CharField(_('Nombre'), max_length=100)
     last_name = models.CharField(_('Apellido'), max_length=100)
-    email = models.EmailField(_("Direccion de email"), max_length=254, unique=True)
-    phone = models.CharField(_('Telefono'), max_length=25, unique=True)
+    email = models.EmailField(_("Direccion de email"), max_length=254)
+    phone = models.CharField(_('Telefono'), max_length=25)
     change_password = models.BooleanField(_("Cambiar password"), default=False)
 
     def __str__(self):
