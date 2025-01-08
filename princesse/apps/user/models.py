@@ -42,13 +42,13 @@ class ClientPayer(models.Model):
         ('CONSUMIDOR_FINAL', 'CONSUMIDOR FINAL')
     )
     dni = models.CharField(_("DNI"), max_length=10)
-    cuit = models.CharField(_("CUIT"), max_length=15)
+    cuit = models.CharField(_("CUIT"), max_length=15, blank=True, null=True)
     first_name = models.CharField(_('Nombre'), max_length=30)
     last_name = models.CharField(_('Apellido'), max_length=30)
     direccion = models.CharField(_('Direccion'), max_length=100, default="")
     email = models.EmailField(_("Direccion de email"), max_length=254)
     phone = models.CharField(_('Telefono'), max_length=25, blank=True, null=True)
-    iva = models.CharField(max_length=30, choices=IVA_CHOICES, default=IVA_CHOICES[0][0])
+    iva = models.CharField(max_length=30, choices=IVA_CHOICES, default=IVA_CHOICES[0][0], blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     def __str__(self):
         return f"{self.dni} - {self.first_name} {self.last_name}"

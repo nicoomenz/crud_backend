@@ -1,10 +1,11 @@
 import json
+from django.forms import ValidationError
 from django.shortcuts import render
 from payment.models import *
 from payment.serializers import PaymentSerializer
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-
+from django.db import transaction
 from django.http import JsonResponse
 from django.core.mail import EmailMessage
 from rest_framework.decorators import action
@@ -12,16 +13,178 @@ from rest_framework.decorators import action
 from payment.utils import generate_invoice_pdf
 # Create your views here.
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 class PaymentsViewSet(viewsets.ModelViewSet):
 
     serializer_class = PaymentSerializer
     queryset = Payment.objects.all()
 
-    # def create(self, request, *args, **kwargs):
-    #     serializer = self.get_serializer(data=request.data)
-    #     serializer.is_valid(raise_exception=True)  # Esto llama a `validate`
-    #     return super().create(request, *args, **kwargs)
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        data = request.data
+        try:
+            payment_serializer = PaymentSerializer(data=data)
+            if payment_serializer.is_valid():
+                data = payment_serializer.validated_data
+                # Extraer datos de cliente
+                client_data = data.pop('client')
+                if client_data.get('id') == 0:
+                    client_data.pop('id')
+                client, created = ClientPayer.objects.get_or_create(**client_data)
+                logger.info(f"Cliente {'creado' if created else 'encontrado'}: {client}")
+
+                # Crear el pago
+                productos_data = data.pop('productos', [])
+                combo_data = data.pop('combo', [])
+                
+                payment = Payment.objects.create(client=client, **data)
+                logger.info(f"Pago creado con ID: {payment.payment_id}")
+                # Procesar productos
+                for producto_data in productos_data:
+                    logger.info(f"Procesando producto: {producto_data}")
+                    
+                    categoria_data = producto_data.pop('categoria')
+                    marca_data = producto_data.pop('marca')
+                    color_data = producto_data.pop('color')
+                    talle_data = producto_data.pop('talle')
+                    categoria = Categoria.objects.get_or_create(id=categoria_data.id, defaults={'nombre': categoria_data.nombre})[0]
+                    marca = Marca.objects.get_or_create(id=marca_data.id, defaults={'nombre': marca_data.nombre})[0] if marca_data else None
+                    color = Color.objects.get_or_create(id=color_data.id, defaults={'nombre': color_data.nombre})[0]
+                    talle = Talle.objects.get_or_create(nombre=talle_data)[0]
+
+                    producto = Producto.objects.get(categoria=categoria, marca=marca, color=color, talle=talle)
+                    logger.info(f"Producto encontrado: {producto}")
+
+                    PaymentProduct.objects.create(payment=payment, producto=producto, cantidad=producto_data['cantidad'])
+                    logger.info(f"Producto añadido al pago: {producto} (cantidad: {producto_data['cantidad']})")
+
+                    producto.cantidad -= producto_data['cantidad']
+                    producto.save()
+                    logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")
+                    payment.productos.add(producto)
+
+                    # Procesar combos
+                    combo_data = data.pop('combo', [])
+                    for combo in combo_data:
+                        combo_instance = Combo.objects.get(**combo)
+                        payment.combo.add(combo_instance)
+                        logger.info(f"Combo añadido al pago: {combo_instance}")
+
+                    serializer = self.get_serializer(payment)
+                    return Response(serializer.data, status=status.HTTP_201_CREATED)
+            else:
+                logger.error(f"Error al validar el pago: {payment_serializer.errors}")
+                return Response(payment_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f"Error al crear el pago: {str(e)}", exc_info=True)
+            return Response({"detail": "Error al crear el pago."}, status=status.HTTP_400_BAD_REQUEST)
     
+    @transaction.atomic
+    def update(self, request, *args, **kwargs):
+
+        data = request.data
+        try:
+            
+            payment_serializer = PaymentSerializer(data=data)
+            if payment_serializer.is_valid():
+                instance = self.get_object()
+                validated_data = payment_serializer.validated_data
+                previous_status = instance.status
+            
+                # Actualizamos los campos simples
+                instance.payment_date = validated_data.get('payment_date', instance.payment_date)
+                instance.small_amount_ok = validated_data.get('small_amount_ok', instance.small_amount_ok)
+                instance.small_amount = validated_data.get('small_amount', instance.small_amount)
+                instance.subtotal_amount = validated_data.get('subtotal_amount', instance.subtotal_amount)
+                instance.descuento = validated_data.get('descuento', instance.descuento)
+                instance.detail_amount = validated_data.get('detail_amount', instance.detail_amount)
+                instance.total_amount = validated_data.get('total_amount', instance.total_amount)
+                instance.pick_up_date = validated_data.get('pick_up_date', instance.pick_up_date)
+                instance.return_date = validated_data.get('return_date', instance.return_date)
+                instance.price_type = validated_data.get('price_type', instance.price_type)
+                instance.description = validated_data.get('description', instance.description)
+                instance.status = validated_data.get('status', instance.status)
+                
+                client_data = validated_data.pop('client')
+                # Buscar el cliente existente
+                try:
+                    client = ClientPayer.objects.get(id=client_data['id'])
+                except ClientPayer.DoesNotExist:
+                    raise ValueError("El cliente con el ID proporcionado no existe")
+
+                # Actualizar solo si los datos han cambiado
+                for key, value in client_data.items():
+                    if getattr(client, key) != value:
+                        setattr(client, key, value)
+
+                client.save()
+                
+                instance.client = client
+                logger.info(f"Cliente modificado: {client}")
+                # Actualizamos los productos
+                productos_data = validated_data.pop('productos', [])
+
+                for producto_data in productos_data:
+                    categoria_data = producto_data.pop('categoria')
+                    marca_data = producto_data.pop('marca')
+                    color_data = producto_data.pop('color')
+                    talle_data = producto_data.pop('talle')
+
+                    categoria = Categoria.objects.update_or_create(id=categoria_data.id, defaults={'nombre': categoria_data.nombre})[0]
+                    marca = Marca.objects.update_or_create(id=marca_data.id, defaults={'nombre': marca_data.nombre})[0] if marca_data else None
+                    color = Color.objects.update_or_create(id=color_data.id, defaults={'nombre': color_data.nombre})[0]
+                    talle = Talle.objects.update_or_create(nombre=talle_data)[0]
+
+                    producto = Producto.objects.get(categoria=categoria, marca=marca, color=color, talle=talle)
+
+                    # Si el estado cambió a "DEVUELTO", revertimos la cantidad
+                    if previous_status != 'DEVUELTO' and instance.status == 'DEVUELTO':
+                        check_cantidad = PaymentProduct.objects.get(payment=instance, producto=producto)
+                        if check_cantidad:
+                            # Añadir la cantidad de productos devueltos
+                            producto.cantidad += check_cantidad.cantidad
+                            producto.save()
+                            check_cantidad.delete()  # Eliminar el registro de la relación de productos con el pago
+                        logger.info(f"Cantidad de producto devuelta: {producto.nombre}, nueva cantidad: {producto.cantidad}")
+                    else:
+                        if producto.cantidad < producto_data['cantidad']:
+                            logger.error(f"No hay suficiente cantidad del producto")
+                            raise ValidationError(f"No hay suficiente cantidad del producto: {producto.nombre}. Disponible: {producto.cantidad}, Solicitado: {producto_data['cantidad']}")
+                        
+                        # Actualizamos o creamos el PaymentProduct
+                        check_cantidad = PaymentProduct.objects.get(payment=instance, producto=producto).cantidad
+                        
+                        if producto_data['cantidad'] != check_cantidad:
+                            PaymentProduct.objects.update(payment=instance, producto=producto, cantidad=producto_data['cantidad'])
+                            logger.info(f"Se actualizó la cantidad de pedidos al producto")
+                            producto.cantidad -= producto_data['cantidad']
+                        
+                        producto.save()
+                
+                # Actualizar los combos (si existen)
+                combo_data = validated_data.pop('combo', [])
+                for combo in combo_data:
+                    combo_instance = Combo.objects.get(**combo)
+                    instance.combo.add(combo_instance)
+                # Guardamos el objeto Payment actualizado
+                instance.save()
+                logger.info(f"Recibo modificado: {instance}")
+                serializer = self.get_serializer(instance)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            else:
+                logger.error(f"Error al validar el pago: {payment_serializer.errors}")
+                return Response(payment_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f"Error al crear el pago: {str(e)}", exc_info=True)
+            return Response({"detail": "Error al crear el pago."}, status=status.HTTP_400_BAD_REQUEST)
+        
+
+
+        
+
     @action(detail=False, methods=['post'], url_path='send-receipt-email')
     def send_receipt_email(self, request):
         # Obtener los datos del cuerpo de la solicitud

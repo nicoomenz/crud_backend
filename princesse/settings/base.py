@@ -19,6 +19,7 @@ SECRET_KEY = 'django-insecure-n&nr0rvk1fg$wf0ilx73w0v*xr2+z55@@)u4k+v3a@07_&gyoj
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+DEBUG_MODE = False
 
 ALLOWED_HOSTS = ['*']
 
@@ -132,5 +133,24 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = "user.User"
 
 DATE_FORMAT = '%d/%m/%Y'
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console_handler': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        # More info on '' (unnamed) loggers at the end of this comment
+        '': {
+            'level': 'INFO',
+            'handlers': ['console_handler'],
+        },
+    },
+
+}
 
 
