@@ -148,11 +148,11 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                             producto.cantidad += check_cantidad.cantidad
                             producto.save()
                             check_cantidad.delete()  # Eliminar el registro de la relación de productos con el pago
-                        logger.info(f"Cantidad de producto devuelta: {producto.nombre}, nueva cantidad: {producto.cantidad}")
+                        logger.info(f"Cantidad de producto devuelta: {producto.categoria.nombre}, nueva cantidad: {producto.cantidad}")
                     else:
                         if producto.cantidad < producto_data['cantidad']:
                             logger.error(f"No hay suficiente cantidad del producto")
-                            raise ValidationError(f"No hay suficiente cantidad del producto: {producto.nombre}. Disponible: {producto.cantidad}, Solicitado: {producto_data['cantidad']}")
+                            raise ValidationError(f"No hay suficiente cantidad del producto: {producto.categoria.nombre}. Disponible: {producto.cantidad}, Solicitado: {producto_data['cantidad']}")
                         
                         # Actualizamos o creamos el PaymentProduct
                         check_cantidad = PaymentProduct.objects.get(payment=instance, producto=producto).cantidad
