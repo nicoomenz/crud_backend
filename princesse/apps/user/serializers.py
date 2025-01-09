@@ -50,7 +50,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 class ClientPayerDetailSerializer(serializers.Serializer):
     id = serializers.IntegerField(required=False)
     dni = serializers.CharField(max_length=10)
-    cuit = serializers.CharField(max_length=15)
+    cuit = serializers.CharField(max_length=15, default="", required=False, allow_blank=True, allow_null=True)
     first_name = serializers.CharField(max_length=30)
     last_name = serializers.CharField(max_length=30)
     direccion = serializers.CharField(max_length=100, default="")
@@ -62,7 +62,7 @@ class ClientPayerDetailSerializer(serializers.Serializer):
         ('MONOTRIBUTISTA', 'MONOTRIBUTISTA'),
         ('EXENTO', 'EXENTO'),
         ('CONSUMIDOR_FINAL', 'CONSUMIDOR FINAL')
-    ])
+    ], required=False, allow_blank=True, allow_null=True)
 
     def create(self, validated_data):
         client_id = validated_data.get('id')
