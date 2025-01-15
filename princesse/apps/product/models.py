@@ -36,23 +36,58 @@ class Color(models.Model):
         verbose_name_plural = _("Colores")
 
 class Precio(models.Model):
-    categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE)
     marca = models.ForeignKey(Marca, on_delete=models.CASCADE, blank=True, null=True)  # Opcional
     efectivo = models.DecimalField("Precio Efectivo", default=0, max_digits=10, decimal_places=2)
     debito = models.DecimalField("Precio Débito", default=0, max_digits=10, decimal_places=2)
     credito = models.DecimalField("Precio Crédito", default=0, max_digits=10, decimal_places=2)
 
     class Meta:
-        unique_together = ('categoria', 'marca')  # Asegura que no se repitan combinaciones
-        verbose_name = "Precio"
-        verbose_name_plural = "Precios"
+        abstract = True
+        unique_together = ('marca',)  # Asegura que no se repitan combinaciones de marca en hijos si es relevante
+
+    def __str__(self):
+        if self.marca:
+            return f"{self.marca.nombre} - Precios"
+        return "Precios"
+
+    # Método para actualizar precios
+    @classmethod
+    def actualizar_precio(cls, marca_id=None, efectivo=None, debito=None, credito=None):
+        try:
+            precio_instance = cls.objects.get(marca_id=marca_id)
+            
+            if efectivo is not None:
+                precio_instance.efectivo = efectivo
+            if debito is not None:
+                precio_instance.debito = debito
+            if credito is not None:
+                precio_instance.credito = credito
+            
+            precio_instance.save()
+            return precio_instance
+        except cls.DoesNotExist:
+            raise ValueError("No se encontró un precio para la marca especificada.")
+    
+    @classmethod
+    def obtener_precio_por_marca(cls, marca_id=None):
+        """
+        Método de clase para obtener los precios por marca
+        """
+        if marca_id:
+            return cls.objects.filter(marca_id=marca_id)
+        return cls.objects.all()
+
+class PrecioProducto(Precio):
+    categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ('categoria', 'marca')  # Combina categoría y marca
 
     def __str__(self):
         if self.marca:
             return f"{self.categoria.nombre} - {self.marca.nombre} - Precios"
         return f"{self.categoria.nombre} - Precios"
-    
-    # Método para actualizar precios
+
     @classmethod
     def actualizar_precio(cls, categoria_id, marca_id=None, efectivo=None, debito=None, credito=None):
         try:
@@ -69,6 +104,50 @@ class Precio(models.Model):
             return precio_instance
         except cls.DoesNotExist:
             raise ValueError("No se encontró un precio para la categoría y marca especificadas.")
+    
+    @classmethod
+    def obtener_precio_por_categoria_y_marca(cls, categoria_id, marca_id=None):
+        """
+        Método de clase para obtener los precios por categoría y marca
+        """
+        if marca_id:
+            return cls.objects.filter(categoria_id=categoria_id, marca_id=marca_id)
+        return cls.objects.filter(categoria_id=categoria_id)
+
+class PrecioCombo(Precio):
+    class Meta:
+        unique_together = ('marca',)  # Solo valida por marca
+
+    def __str__(self):
+        if self.marca:
+            return f"Combo - {self.marca.nombre} - Precios"
+        return "Combo - Precios"
+
+    @classmethod
+    def actualizar_precio(cls, marca_id=None, efectivo=None, debito=None, credito=None):
+        try:
+            precio_instance = cls.objects.get(marca_id=marca_id)
+            
+            if efectivo is not None:
+                precio_instance.efectivo = efectivo
+            if debito is not None:
+                precio_instance.debito = debito
+            if credito is not None:
+                precio_instance.credito = credito
+            
+            precio_instance.save()
+            return precio_instance
+        except cls.DoesNotExist:
+            raise ValueError("No se encontró un precio para la marca especificada.")
+
+    @classmethod
+    def obtener_precio_por_marca(cls, marca_id=None):
+        """
+        Método de clase para obtener los precios por marca
+        """
+        if marca_id:
+            return cls.objects.filter(marca_id=marca_id)
+        return cls.objects.all()
 
 class Producto(models.Model):
 
@@ -77,7 +156,7 @@ class Producto(models.Model):
     color = models.ForeignKey(Color, on_delete=models.CASCADE)
     talle = models.ForeignKey(Talle, on_delete=models.CASCADE)
     tela = models.ForeignKey(Tela, on_delete=models.CASCADE, blank=True, null=True)
-    precio = models.ForeignKey(Precio, on_delete=models.CASCADE, related_name="productos")  # Referencia al modelo Precio
+    precio = models.ForeignKey(PrecioProducto, on_delete=models.CASCADE, related_name="productos")  # Referencia al modelo Precio
 
     cantidad = models.PositiveIntegerField(default=0)
     
@@ -100,8 +179,11 @@ class Producto(models.Model):
 
 class Combo(models.Model):
 
-    nombre = models.CharField(max_length=50)
+    marca = models.ForeignKey(Marca, on_delete=models.CASCADE, blank=True, null=True)
+    color = models.ForeignKey(Color, on_delete=models.CASCADE)
+    talle = models.ForeignKey(Talle, on_delete=models.CASCADE)
     productos = models.ManyToManyField(Producto, blank=True)
+    precio = models.ForeignKey(PrecioCombo, on_delete=models.CASCADE, related_name="combos") 
 
     def __str__(self):
-        return self.nombre
+        return f"{self.marca.nombre} - {self.color.nombre} - {self.talle.nombre}"

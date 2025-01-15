@@ -26,11 +26,20 @@ class ColorAdmin(admin.ModelAdmin):
 @admin.register(Producto)
 class ProductoAdmin(admin.ModelAdmin):
     list_display = ('id', 'categoria', 'marca', 'color', 'talle', 'cantidad')
+    search_fields = ('categoria__nombre', 'marca__nombre')  # Búsqueda
+    list_filter = ('categoria', 'marca')  # Filtros en el admin
 
-@admin.register(Precio)
-class ProductoAdmin(admin.ModelAdmin):
-    list_display = ('id', 'categoria', 'marca', 'efectivo', 'debito', 'credito')
+@admin.register(PrecioProducto)
+class PrecioProductoAdmin(admin.ModelAdmin):
+    fields = ('categoria', 'marca', 'efectivo', 'debito', 'credito')  # Incluye todos los campos
+    list_display = ('categoria', 'marca', 'efectivo', 'debito', 'credito')
+    search_fields = ('categoria__nombre', 'marca__nombre')  # Búsqueda
+    list_filter = ('categoria', 'marca')  # Filtros en el admin
+
+@admin.register(PrecioCombo)
+class PrecioComboAdmin(admin.ModelAdmin):
+    list_display = ('id', 'marca', 'efectivo', 'debito', 'credito')
 
 @admin.register(Combo)
 class ComboAdmin(admin.ModelAdmin):
-    list_display = ('id', 'nombre',)
+    list_display = ('id', 'marca')

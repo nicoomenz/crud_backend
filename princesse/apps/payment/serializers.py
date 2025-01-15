@@ -3,16 +3,21 @@ from payment.models import *
 from rest_framework import serializers
 
 from user.serializers import ClientPayerDetailSerializer, ClientPayerSerializer
-from product.serializers import CategoriaSerializer, ColorSerializer, ComboSerializer, MarcaSerializer, PrecioSerializer, ProductoSerializer, ProductDetailSerializer, TalleSerializer
+from product.serializers import CategoriaSerializer, ColorSerializer, ComboDetailSerializer, ComboSerializer, MarcaSerializer, PrecioComboSerializer, PrecioProductoSerializer, ProductoSerializer, ProductDetailSerializer, TalleSerializer
 
 class PaymentProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaymentProduct
         fields = ['producto', 'cantidad']
+
+class PaymentComboSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PaymentCombo
+        fields = ['producto', 'cantidad']
 class PaymentSerializer(serializers.ModelSerializer):
     client = ClientPayerDetailSerializer()
     productos = ProductDetailSerializer(many=True, required=False)
-    combo = ComboSerializer(many=True, required=False)
+    combo = ComboDetailSerializer(many=True, required=False)
 
     class Meta:
         model = Payment
@@ -50,67 +55,6 @@ class PaymentSerializer(serializers.ModelSerializer):
         
         return data
 
-    # def update(self, instance, validated_data):
-    #     # Actualizamos los campos simples
-    #     instance.payment_date = validated_data.get('payment_date', instance.payment_date)
-    #     instance.small_amount_ok = validated_data.get('small_amount_ok', instance.small_amount_ok)
-    #     instance.small_amount = validated_data.get('small_amount', instance.small_amount)
-    #     instance.subtotal_amount = validated_data.get('subtotal_amount', instance.subtotal_amount)
-    #     instance.descuento = validated_data.get('descuento', instance.descuento)
-    #     instance.detail_amount = validated_data.get('detail_amount', instance.detail_amount)
-    #     instance.total_amount = validated_data.get('total_amount', instance.total_amount)
-    #     instance.pick_up_date = validated_data.get('pick_up_date', instance.pick_up_date)
-    #     instance.return_date = validated_data.get('return_date', instance.return_date)
-    #     instance.price_type = validated_data.get('price_type', instance.price_type)
-    #     instance.description = validated_data.get('description', instance.description)
-    #     instance.status = validated_data.get('status', instance.status)
-
-    #     client_data = validated_data.pop('client')
-    #     # Buscar el cliente existente
-    #     try:
-    #         client = ClientPayer.objects.get(id=client_data['id'])
-    #     except ClientPayer.DoesNotExist:
-    #         raise ValueError("El cliente con el ID proporcionado no existe")
-
-    #     # Actualizar solo si los datos han cambiado
-    #     for key, value in client_data.items():
-    #         if getattr(client, key) != value:
-    #             setattr(client, key, value)
-
-    #     client.save()
-    #     instance.client = client
-
-    #     # Actualizamos los productos
-    #     productos_data = validated_data.pop('productos', [])
-    #     for producto_data in productos_data:
-    #         categoria_data = producto_data.pop('categoria')
-    #         marca_data = producto_data.pop('marca')
-    #         color_data = producto_data.pop('color')
-    #         talle_data = producto_data.pop('talle')
-    #         categoria = Categoria.objects.update_or_create(id=categoria_data.id, defaults={'nombre': categoria_data.nombre})[0]
-    #         marca = Marca.objects.update_or_create(id=marca_data.id, defaults={'nombre': marca_data.nombre})[0] if marca_data else None
-    #         color = Color.objects.update_or_create(id=color_data.id, defaults={'nombre': color_data.nombre})[0]
-    #         talle = Talle.objects.update_or_create(nombre=talle_data)[0]
-
-    #         producto = Producto.objects.get(categoria=categoria, marca=marca, color=color, talle=talle)
-
-    #         # Actualiza o crea el PaymentProduct
-    #         PaymentProduct.objects.update(payment=instance, producto=producto, cantidad=producto_data['cantidad'])
-
-    #         # Restar la cantidad de productos disponibles
-    #         producto.cantidad -= producto_data['cantidad']
-    #         producto.save()
-
-    #     # Actualizar los combos (si existen)
-    #     combo_data = validated_data.pop('combo', [])
-    #     for combo in combo_data:
-    #         combo_instance = Combo.objects.get(**combo)
-    #         instance.combo.add(combo_instance)
-
-    #     # Guardamos el objeto Payment actualizado
-    #     instance.save()
-    #     return instance
- 
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['payment_date'] = instance.payment_date.strftime('%d/%m/%Y') if instance.payment_date else None
@@ -124,9 +68,37 @@ class PaymentSerializer(serializers.ModelSerializer):
                 'marca': MarcaSerializer(producto.marca).data if producto.marca else None,
                 'color': ColorSerializer(producto.color).data,
                 'talle': TalleSerializer(producto.talle).data,
-                'precio': PrecioSerializer(producto.precio).data,
+                'precio': PrecioProductoSerializer(producto.precio).data,
                 'cantidad': payment_product.cantidad if payment_product else None
             }
             productos_representation.append(producto_data)
         data['productos'] = productos_representation
+        combos_representation = []
+        for combo in instance.combo.all():
+            payment_combo = PaymentCombo.objects.filter(payment=instance, combo=combo).first()
+            combo_data = {
+                'id': combo.id,
+                'marca': MarcaSerializer(combo.marca).data if combo.marca else None,
+                'color': ColorSerializer(combo.color).data,
+                'talle': TalleSerializer(combo.talle).data,
+                'precio': PrecioComboSerializer(combo.precio).data,
+                'cantidad': payment_combo.cantidad if payment_combo else None
+            }
+            productos_data = []
+            for producto in combo.productos.all():  # O la relación adecuada para obtener los productos del combo
+                payment_product = PaymentProduct.objects.filter(payment=instance, producto=producto).first()
+                producto_data = {
+                    'categoria': CategoriaSerializer(producto.categoria).data,
+                    'marca': MarcaSerializer(producto.marca).data if producto.marca else None,
+                    'color': ColorSerializer(producto.color).data,
+                    'talle': TalleSerializer(producto.talle).data,
+                    'precio': PrecioProductoSerializer(producto.precio).data,
+                    'cantidad': payment_product.cantidad if payment_product else None
+                }
+                productos_data.append(producto_data)
+            
+            # Añadimos los productos al combo_data
+            combo_data['productos'] = productos_data
+            combos_representation.append(combo_data)
+        data['combo'] = combos_representation
         return data

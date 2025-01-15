@@ -63,6 +63,33 @@ class PrimaryKeyforPrecio(serializers.PrimaryKeyRelatedField):
         # Si no es un dict, asumimos que es un PK
         return super().to_internal_value(data)
 
+class PrimaryKeyforPrecioCombo(serializers.PrimaryKeyRelatedField):
+    def to_internal_value(self, data):
+        if isinstance(data, dict):
+            # Extraemos los IDs o nombres de categoría y marca
+            marca = data.get('marca')
+            
+            if not marca:
+                raise serializers.ValidationError("Se requiere 'marca'.")
+
+            # Buscar por IDs primero
+            queryset = self.get_queryset()
+            try:
+                return queryset.get(marca_id=marca['id'])
+            except queryset.model.DoesNotExist:
+                # Si no hay IDs, intentamos con los nombres
+                try:
+                    return queryset.get(
+                        marca__nombre=marca
+                    )
+                except queryset.model.DoesNotExist:
+                    raise serializers.ValidationError(
+                        "No se encontró un precio la marca especificada."
+                    )
+
+        # Si no es un dict, asumimos que es un PK
+        return super().to_internal_value(data)
+
 
         
 class TallesVariantSerializer(serializers.ModelSerializer):
@@ -72,11 +99,11 @@ class TallesVariantSerializer(serializers.ModelSerializer):
         model = Talle
         fields = '__all__'
 
-class PrecioSerializer(serializers.ModelSerializer):
+class PrecioProductoSerializer(serializers.ModelSerializer):
     categoria = PrimaryKeyOrNameRelatedField(queryset=Categoria.objects.all())
     marca = PrimaryKeyOrNameRelatedField(queryset=Marca.objects.all(), allow_null=True)
     class Meta:
-        model = Precio
+        model = PrecioProducto
         fields = ['id', 'categoria', 'marca', 'efectivo', 'debito', 'credito']
     
     def to_representation(self, instance):
@@ -85,6 +112,19 @@ class PrecioSerializer(serializers.ModelSerializer):
         data['categoria'] = CategoriaSerializer(instance.categoria).data
         data['marca'] = MarcaSerializer(instance.marca).data if instance.marca else None
         return data
+
+class PrecioComboSerializer(serializers.ModelSerializer):
+    marca = PrimaryKeyOrNameRelatedField(queryset=Marca.objects.all(), allow_null=True)
+    class Meta:
+        model = PrecioProducto
+        fields = ['id','marca', 'efectivo', 'debito', 'credito'] 
+    
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Aquí se asegura que todos los campos sean serializados correctamente
+        data['marca'] = MarcaSerializer(instance.marca).data if instance.marca else None
+        return data
+
 
     
 
@@ -98,7 +138,7 @@ class ProductDetailSerializer(serializers.Serializer):
     marca = PrimaryKeyOrNameRelatedField(queryset=Marca.objects.all(), allow_null=True)
     color = PrimaryKeyOrNameRelatedField(queryset=Color.objects.all(), allow_null=True)
     talle = PrimaryKeyOrNameRelatedField(queryset=Talle.objects.all())
-    precio = PrimaryKeyforPrecio(queryset=Precio.objects.all(), required=False)
+    precio = PrimaryKeyforPrecio(queryset=PrecioProducto.objects.all(), required=False)
     cantidad = serializers.IntegerField(write_only=True)
 
     class Meta:
@@ -110,7 +150,7 @@ class ProductoSerializer(serializers.ModelSerializer):
     efectivo = serializers.IntegerField(write_only=True)
     debito = serializers.IntegerField(write_only=True)
     credito = serializers.IntegerField(write_only=True)
-    precio = serializers.PrimaryKeyRelatedField(queryset=Precio.objects.all(), required=False)
+    precio = serializers.PrimaryKeyRelatedField(queryset=PrecioProducto.objects.all(), required=False)
 
     class Meta:
         model = Producto
@@ -138,7 +178,7 @@ class ProductoSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Faltan los precios requeridos: 'efectivo', 'debito', 'credito'.")
         
         # Crear un nuevo registro en el modelo Precio
-        precio, created = Precio.objects.update_or_create(
+        precio, created = PrecioProducto.objects.update_or_create(
             categoria=categoria,
             marca=marca,
             defaults={
@@ -167,35 +207,35 @@ class ProductoSerializer(serializers.ModelSerializer):
 
         return productos
 
-    def update(self, instance, validated_data):
+    # def update(self, instance, validated_data):
 
-        categoria_id = validated_data.get("categoria")
-        marca_id = validated_data.get("marca", None)
-        efectivo = validated_data.get("efectivo")
-        debito = validated_data.get("debito")
-        credito = validated_data.get("credito")
-         # Actualizar como en el ejemplo anterior
-        validated_data.pop('variantes', None)
+    #     categoria_id = validated_data.get("categoria")
+    #     marca_id = validated_data.get("marca", None)
+    #     efectivo = validated_data.get("efectivo")
+    #     debito = validated_data.get("debito")
+    #     credito = validated_data.get("credito")
+    #      # Actualizar como en el ejemplo anterior
+    #     validated_data.pop('variantes', None)
         
 
-        # Delegar la lógica de actualización al modelo Precio
-        if categoria_id:
-            try:
+    #     # Delegar la lógica de actualización al modelo Precio
+    #     if categoria_id:
+    #         try:
 
-                Precio.actualizar_precio(
-                    categoria_id=categoria_id,
-                    marca_id=marca_id,
-                    efectivo=efectivo,
-                    debito=debito,
-                    credito=credito,
-                )
-            except ValueError as e:
-                raise serializers.ValidationError({"error": str(e)})
+    #             PrecioProducto.actualizar_precio(
+    #                 categoria_id=categoria_id,
+    #                 marca_id=marca_id,
+    #                 efectivo=efectivo,
+    #                 debito=debito,
+    #                 credito=credito,
+    #             )
+    #         except ValueError as e:
+    #             raise serializers.ValidationError({"error": str(e)})
             
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-        return instance
+    #     for attr, value in validated_data.items():
+    #         setattr(instance, attr, value)
+    #     instance.save()
+    #     return instance
     
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -205,7 +245,7 @@ class ProductoSerializer(serializers.ModelSerializer):
         data['color'] = ColorSerializer(instance.color).data
         data['talle'] = TalleSerializer(instance.talle).data
         data['tela'] = instance.tela if instance.tela else None
-        data['precio'] = PrecioSerializer(instance.precio).data 
+        data['precio'] = PrecioProductoSerializer(instance.precio).data 
         data.pop('variantes', None)
         return data
 
@@ -228,7 +268,7 @@ class ProductoCompactoSerializer(serializers.Serializer):
     categoria = CategoriaSerializer()
     marca = MarcaSerializer(allow_null=True)
     variantes = serializers.SerializerMethodField()
-    precio = PrecioSerializer()
+    precio = PrecioProductoSerializer()
     tela = serializers.CharField(allow_null=True)
 
     def get_variantes(self, obj):
@@ -247,8 +287,144 @@ class ProductoCompactoSerializer(serializers.Serializer):
             })
 
         return VarianteCompactaSerializer(variantes.values(), many=True).data
+
+class ComboDetailSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    marca = PrimaryKeyOrNameRelatedField(queryset=Marca.objects.all(), allow_null=True)
+    color = PrimaryKeyOrNameRelatedField(queryset=Color.objects.all(), allow_null=True)
+    talle = PrimaryKeyOrNameRelatedField(queryset=Talle.objects.all(), allow_null=True)
+    productos = serializers.ListField(
+        child=serializers.DictField(), write_only=True
+    )
+    precio = PrimaryKeyforPrecioCombo(queryset=PrecioCombo.objects.all(), required=False)
+    cantidad = serializers.IntegerField(write_only=True)
+
+    class Meta:
+        fields = ['id', 'marca', 'productos', 'color', 'talle', 'tela', 'precio', 'cantidad']
+
 class ComboSerializer(serializers.ModelSerializer):
+    marca = PrimaryKeyOrNameRelatedField(queryset=Marca.objects.all(), allow_null=True)
+    color = PrimaryKeyOrNameRelatedField(queryset=Color.objects.all(), allow_null=True)
+    talle = PrimaryKeyOrNameRelatedField(queryset=Talle.objects.all(), allow_null=True)
+    productos = serializers.ListField(
+        child=serializers.DictField(), write_only=True
+    )
+    efectivo = serializers.IntegerField(write_only=True)
+    debito = serializers.IntegerField(write_only=True)
+    credito = serializers.IntegerField(write_only=True)
+    precio = serializers.PrimaryKeyRelatedField(queryset=PrecioCombo.objects.all(), required=False)
     
     class Meta:
         model = Combo
         fields = '__all__'
+    
+    def validate(self, attrs):
+        # Validar precios
+        if not all(key in attrs for key in ['efectivo', 'debito', 'credito']):
+            raise serializers.ValidationError("Faltan los precios requeridos: 'efectivo', 'debito', 'credito'.")
+        return attrs
+
+    def create(self, validated_data):
+        marca = validated_data.get('marca')
+        color = validated_data.get('color')
+        talle = validated_data.get('talle')
+        efectivo = validated_data.pop('efectivo')
+        debito = validated_data.pop('debito')
+        credito = validated_data.pop('credito')
+        productos_data = validated_data.pop('productos', [])
+        cantidad = validated_data.get('cantidad')
+        
+        # Crear un nuevo registro en el modelo Precio
+        precio, _ = PrecioCombo.objects.update_or_create(
+            marca=marca,
+            color=color,
+            talle=talle,
+            cantidad=cantidad,
+            defaults={
+                'efectivo': efectivo,
+                'debito': debito,
+                'credito': credito,
+            }
+        )
+
+        validated_data['precio'] = precio  # Asignar el precio al validated_data
+
+        combo = Combo.objects.create(**validated_data)  # Creamos el Combo principal
+
+        for producto_data in productos_data:
+            producto_id = producto_data.get("id")
+            combo.productos.add(producto_id)
+
+        # Asignamos los productos relacionados
+        
+        return combo
+
+    def update(self, instance, validated_data):
+        marca = validated_data.get('marca')
+        color = validated_data.get('color')
+        talle = validated_data.get('talle')
+        efectivo = validated_data.pop('efectivo')
+        debito = validated_data.pop('debito')
+        credito = validated_data.pop('credito')
+        productos_data = validated_data.pop('productos', [])
+        cantidad = validated_data.get('cantidad')
+        
+        # Crear un nuevo registro en el modelo Precio
+        precio, _ = PrecioCombo.objects.update_or_create(
+            marca=marca,
+            color=color,
+            talle=talle,
+            cantidad= cantidad,
+            defaults={
+                'efectivo': efectivo,
+                'debito': debito,
+                'credito': credito,
+            }
+        )
+
+        validated_data['precio'] = precio  # Asignar el precio al validated_data
+
+        instance.productos.clear()  # Limpiar los productos existentes antes de agregar los nuevos
+        for producto_data in productos_data:
+            producto_id = producto_data.get("id")
+            instance.productos.add(producto_id)
+        
+        # Guardar el objeto Combo actualizado
+        instance.save()
+        
+        return instance
+    
+    def to_representation(self, instance):
+        # Obtener la representación original del Combo
+        representation = super().to_representation(instance)
+        
+        # Añadir productos a la representación
+        productos = instance.productos.all()  # Obtiene los productos relacionados
+        productos_rep = ProductoSerializer(productos, many=True).data  # Serializa los productos
+        
+        # Añadir los productos serializados a la representación
+        representation['productos'] = productos_rep
+
+        # La marca ya está serializada como instancia completa en el serializer
+        # Lo mismo para el precio
+        
+        representation['marca'] = MarcaSerializer(instance.marca).data
+        representation['color'] = ColorSerializer(instance.color).data
+        representation['talle'] = TalleSerializer(instance.talle).data
+        representation['precio'] = PrecioComboSerializer(instance.precio).data
+        
+        return representation
+
+
+
+class PrecioComboSerializer(serializers.ModelSerializer):
+    marca = PrimaryKeyOrNameRelatedField(queryset=Marca.objects.all(), allow_null=True)
+    class Meta:
+        model = PrecioCombo
+        fields = ['id', 'marca', 'efectivo', 'debito', 'credito']
+    
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Aquí se asegura que todos los campos sean serializados correctamente
+        data['marca'] = MarcaSerializer(instance.marca).data if instance.marca else None
+        return data
