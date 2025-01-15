@@ -26,10 +26,12 @@ class PaymentsViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         data = request.data
         try:
+             
             payment_serializer = PaymentSerializer(data=data)
             if payment_serializer.is_valid():
                 data = payment_serializer.validated_data
                 # Extraer datos de cliente
+                
                 client_data = data.pop('client')
                 if client_data.get('id') == 0:
                     client_data.pop('id')
@@ -57,30 +59,62 @@ class PaymentsViewSet(viewsets.ModelViewSet):
 
                     producto = Producto.objects.get(categoria=categoria, marca=marca, color=color, talle=talle)
                     logger.info(f"Producto encontrado: {producto}")
-
+                    if producto.cantidad < producto_data['cantidad']:
+                        logger.error(f"No hay suficiente cantidad del producto")
+                        raise ValidationError(f"No hay suficiente cantidad del producto: {producto.categoria.nombre}. Disponible: {producto.cantidad}, Solicitado: {producto_data['cantidad']}")
+                        
+                        # Actualizamos o creamos el PaymentProduct
                     PaymentProduct.objects.create(payment=payment, producto=producto, cantidad=producto_data['cantidad'])
                     logger.info(f"Producto añadido al pago: {producto} (cantidad: {producto_data['cantidad']})")
-
                     producto.cantidad -= producto_data['cantidad']
                     producto.save()
                     logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")
                     payment.productos.add(producto)
-
-                    # Procesar combos
-                    combo_data = data.pop('combo', [])
+                    
+                
+                # Procesar combos
+                combo_data = request.data.get("combo", [])
+                if combo_data and isinstance(combo_data, list):
                     for combo in combo_data:
-                        combo_instance = Combo.objects.get(**combo)
+                        combo_id = combo["id"]
+                        combo_instance = Combo.objects.get(id=combo_id)
                         payment.combo.add(combo_instance)
+                        PaymentCombo.objects.create(payment=payment, combo=combo_instance, cantidad=combo['cantidad'])
                         logger.info(f"Combo añadido al pago: {combo_instance}")
+                        productos = combo.get("productos", [])
+                        # Restar cantidades de los productos dentro del combo
+                        for producto_data in productos:
+                            
+                            categoria_data = producto_data.get('categoria')
+                            marca_data = producto_data.get('marca')
+                            color_data = producto_data.get('color')
+                            talle_data = producto_data.get('talle')
 
-                    serializer = self.get_serializer(payment)
-                    return Response(serializer.data, status=status.HTTP_201_CREATED)
+                            categoria = Categoria.objects.get_or_create(id=categoria_data['id'], defaults={'nombre': categoria_data['nombre']})[0]
+                            marca = Marca.objects.get_or_create(id=marca_data['id'], defaults={'nombre': marca_data['nombre']})[0] if marca_data else None
+                            color = Color.objects.get_or_create(id=color_data['id'], defaults={'nombre': color_data['nombre']})[0]
+                            talle = Talle.objects.get_or_create(nombre=talle_data['nombre'])[0]
+                            producto = Producto.objects.get(categoria=categoria, marca=marca, color=color, talle=talle)
+                            logger.info(f"Producto encontrado: {producto}")
+                            if producto.cantidad < combo['cantidad']:
+                                logger.error(f"No hay suficiente cantidad del producto")
+                                raise ValidationError(f"No hay suficiente cantidad del producto: {producto.categoria.nombre}. Disponible: {producto.cantidad}, Solicitado: {combo['cantidad']}")
+                               
+                            # Actualizamos o creamos el PaymentProduct
+                            PaymentProduct.objects.create(payment=payment, producto=producto, cantidad=combo['cantidad'])
+                            logger.info(f"Producto añadido al pago: {producto} (cantidad: {combo['cantidad']})")
+                            producto.cantidad -= combo['cantidad']
+                            producto.save()
+                            logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")
+
+                serializer = self.get_serializer(payment)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
             else:
                 logger.error(f"Error al validar el pago: {payment_serializer.errors}")
                 return Response(payment_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Error al crear el pago: {str(e)}", exc_info=True)
-            return Response({"detail": "Error al crear el pago."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
     @transaction.atomic
     def update(self, request, *args, **kwargs):
@@ -121,12 +155,10 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                         setattr(client, key, value)
 
                 client.save()
-                
                 instance.client = client
                 logger.info(f"Cliente modificado: {client}")
                 # Actualizamos los productos
                 productos_data = validated_data.pop('productos', [])
-
                 for producto_data in productos_data:
                     categoria_data = producto_data.pop('categoria')
                     marca_data = producto_data.pop('marca')
@@ -164,11 +196,61 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                         
                         producto.save()
                 
-                # Actualizar los combos (si existen)
-                combo_data = validated_data.pop('combo', [])
-                for combo in combo_data:
-                    combo_instance = Combo.objects.get(**combo)
-                    instance.combo.add(combo_instance)
+
+                # Procesar combos
+                combo_data = validated_data.get('combo', [])
+                if combo_data and isinstance(combo_data, list):
+                    for combo in combo_data:
+                        combo_id = combo["id"]
+                        combo_instance = Combo.objects.get(id=combo_id)
+                        instance.combo.add(combo_instance)
+                        logger.info(f"Combo añadido al pago: {combo_instance}")
+                        productos = combo.get("productos", [])
+                        # Restar cantidades de los productos dentro del combo
+                        for producto_data in productos:
+                            
+                            categoria_data = producto_data.get('categoria')
+                            marca_data = producto_data.get('marca')
+                            color_data = producto_data.get('color')
+                            talle_data = producto_data.get('talle')
+                            categoria = Categoria.objects.get_or_create(id=categoria_data['id'], defaults={'nombre': categoria_data['nombre']})[0]
+                            marca = Marca.objects.get_or_create(id=marca_data['id'], defaults={'nombre': marca_data['nombre']})[0] if marca_data else None
+                            color = Color.objects.get_or_create(id=color_data['id'], defaults={'nombre': color_data['nombre']})[0]
+                            talle = Talle.objects.get_or_create(nombre=talle_data['nombre'])[0]
+                            producto = Producto.objects.get(categoria=categoria, marca=marca, color=color, talle=talle)
+                            logger.info(f"Producto encontrado: {producto}")
+
+
+                            # Si el estado cambió a "DEVUELTO", revertimos la cantidad
+                            if previous_status != 'DEVUELTO' and instance.status == 'DEVUELTO':
+                                check_cantidad = PaymentProduct.objects.get(payment=instance, producto=producto)
+                                if check_cantidad:
+                                    # Añadir la cantidad de productos devueltos
+                                    producto.cantidad += check_cantidad.cantidad
+                                    producto.save()
+                                    check_cantidad.delete()  # Eliminar el registro de la relación de productos con el pago
+                                logger.info(f"Cantidad de producto devuelta: {producto.categoria.nombre}, nueva cantidad: {producto.cantidad}")
+                            else:
+                                if producto.cantidad < combo['cantidad']:
+                                    logger.error(f"No hay suficiente cantidad del producto")
+                                    raise ValidationError(f"No hay suficiente cantidad del producto: {producto.categoria.nombre}. Disponible: {producto.cantidad}, Solicitado: {combo['cantidad']}")
+                                
+                                # Actualizamos o creamos el PaymentProduct
+                                check_cantidad = PaymentProduct.objects.get(payment=instance, producto=producto).cantidad
+                                
+                                if combo['cantidad'] != check_cantidad:
+                                    PaymentProduct.objects.update(payment=instance, producto=producto, cantidad=combo['cantidad'])
+                                    logger.info(f"Se actualizó la cantidad de pedidos al producto")
+                                    producto.cantidad -= combo['cantidad']
+                                
+                                producto.save()
+
+
+
+
+
+
+
                 # Guardamos el objeto Payment actualizado
                 instance.save()
                 logger.info(f"Recibo modificado: {instance}")
@@ -179,7 +261,8 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                 return Response(payment_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Error al crear el pago: {str(e)}", exc_info=True)
-            return Response({"detail": "Error al crear el pago."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
         
 
 

@@ -48,3 +48,8 @@ class PaymentProduct(models.Model):
     payment = models.ForeignKey(Payment, on_delete=models.CASCADE)
     producto = models.ForeignKey(Producto, on_delete=models.CASCADE)
     cantidad = models.PositiveIntegerField()
+
+class PaymentCombo(models.Model):
+    payment = models.ForeignKey(Payment, on_delete=models.CASCADE)
+    combo = models.ForeignKey(Combo, on_delete=models.CASCADE)
+    cantidad = models.PositiveIntegerField()

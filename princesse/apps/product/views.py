@@ -1,15 +1,22 @@
 from django.shortcuts import render
-from product.models import *
-from product.serializers import *
+from .models import *
+from .serializers import *
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from product.filters import ProductsFilter
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import status
+from rest_framework.exceptions import NotFound
 # Create your views here.
 
 class ProductosViewSet(viewsets.ModelViewSet):
 
     serializer_class = ProductoSerializer
     queryset = Producto.objects.all()
+
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = ProductsFilter
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -54,27 +61,49 @@ class ProductosViewSet(viewsets.ModelViewSet):
         ]
         return Response(data, status=status.HTTP_200_OK)
 
-from rest_framework.response import Response
-from rest_framework import status
-from .models import Precio
-from .serializers import PrecioSerializer
+    def update(self, request, *args, **kwargs):
+        # Obtén la instancia actual
+        instance = self.get_object()
+        
+        # Obtén los datos validados del request
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        
+        validated_data = serializer.validated_data
 
-from rest_framework.response import Response
-from rest_framework import status
-from .models import Precio
-from .serializers import PrecioSerializer
+        # Extrae los datos necesarios
+        categoria_id = validated_data.get("categoria")
+        marca_id = validated_data.get("marca", None)
+        efectivo = validated_data.get("efectivo")
+        debito = validated_data.get("debito")
+        credito = validated_data.get("credito")
 
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.decorators import action
-from .models import Precio
-from .serializers import PrecioSerializer
-from rest_framework.exceptions import NotFound
+        # Actualiza el precio en el modelo PrecioProducto si se proporcionan categoría y marca
+        if categoria_id:
+            try:
+                PrecioProducto.actualizar_precio(
+                    categoria_id=categoria_id,
+                    marca_id=marca_id,
+                    efectivo=efectivo,
+                    debito=debito,
+                    credito=credito,
+                )
+            except ValueError as e:
+                # Lanza un error de validación si falla la lógica del modelo
+                return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+        # Actualiza los otros campos del producto
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Devuelve la respuesta con los datos actualizados
+        return Response(self.get_serializer(instance).data, status=status.HTTP_200_OK)
+    
 class ProductosAmountsViewSet(viewsets.ModelViewSet):
-    serializer_class = PrecioSerializer
-    queryset = Precio.objects.all()
+    serializer_class = PrecioProductoSerializer
+    queryset = PrecioProducto.objects.all()
 
     def get_queryset(self):
         # Obtén los datos del cuerpo de la solicitud
@@ -82,11 +111,11 @@ class ProductosAmountsViewSet(viewsets.ModelViewSet):
         marca = self.request.query_params.get('marca', None)
 
         if not categoria:
-            return Precio.objects.all()
+            return PrecioProducto.objects.all()
 
         try:
-            queryset = Precio.objects.get(categoria=categoria, marca=marca)
-        except Precio.DoesNotExist:
+            queryset = PrecioProducto.objects.get(categoria=categoria, marca=marca)
+        except PrecioProducto.DoesNotExist:
             raise NotFound("No se encontraron productos con esos parámetros.")
 
         # Filtra los precios por marca si se proporciona
@@ -97,7 +126,43 @@ class ProductosAmountsViewSet(viewsets.ModelViewSet):
         queryset = self.get_queryset()
 
         # Si el queryset es un solo objeto (no una lista), lo serializamos directamente
-        if isinstance(queryset, Precio):
+        if isinstance(queryset, PrecioProducto):
+            serializer = self.get_serializer(queryset)
+            return Response(serializer.data)
+
+        # Si el queryset es una lista y no hay resultados, devolvemos una lista vacía
+        if not queryset.exists():
+            return Response([], status=status.HTTP_200_OK)
+
+        # Si hay resultados, serializamos y devolvemos la respuesta
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+    
+class CombosAmountsViewSet(viewsets.ModelViewSet):
+    serializer_class = PrecioComboSerializer
+    queryset = PrecioCombo.objects.all()
+
+    def get_queryset(self):
+        # Obtén los datos del cuerpo de la solicitud
+        marca = self.request.query_params.get('marca', None)
+
+        if not marca:
+                return PrecioCombo.objects.all()
+
+        try:
+            queryset = PrecioCombo.objects.get(marca=marca)
+        except PrecioCombo.DoesNotExist:
+            raise NotFound("No se encontraron productos con esos parámetros.")
+
+        # Filtra los precios por marca si se proporciona
+        
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+
+        # Si el queryset es un solo objeto (no una lista), lo serializamos directamente
+        if isinstance(queryset, PrecioCombo):
             serializer = self.get_serializer(queryset)
             return Response(serializer.data)
 
@@ -109,9 +174,33 @@ class ProductosAmountsViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+class CombosViewSet(viewsets.ModelViewSet):
+    
+        serializer_class = ComboSerializer
+        queryset = Combo.objects.all()
 
+        def create(self, request, *args, **kwargs):
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            
+            # Crear los productos
+            combo = serializer.save()
+            
+            # Serializar y devolver la lista de productos creados
+            response_data = ComboSerializer(combo).data
+            return Response(response_data, status=status.HTTP_201_CREATED)
 
-
+        def update(self, request, *args, **kwargs):
+            instance = self.get_object()
+            serializer = self.get_serializer(instance, data=request.data)
+            serializer.is_valid(raise_exception=True)
+            
+            # Crear los productos
+            combo = serializer.save()
+            
+            # Serializar y devolver la lista de productos creados
+            response_data = ComboSerializer(combo).data
+            return Response(response_data, status=status.HTTP_200_OK)
 
 class CategoriasViewSet(viewsets.ModelViewSet):
 
@@ -132,9 +221,3 @@ class TallesViewSet(viewsets.ModelViewSet):
     
         serializer_class = TalleSerializer
         queryset = Talle.objects.all() 
-
-class CombosViewSet(viewsets.ModelViewSet):
-    
-        serializer_class = ComboSerializer
-        queryset = Combo.objects.all()
-        
