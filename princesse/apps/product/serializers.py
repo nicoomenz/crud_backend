@@ -332,14 +332,10 @@ class ComboSerializer(serializers.ModelSerializer):
         debito = validated_data.pop('debito')
         credito = validated_data.pop('credito')
         productos_data = validated_data.pop('productos', [])
-        cantidad = validated_data.get('cantidad')
         
         # Crear un nuevo registro en el modelo Precio
         precio, _ = PrecioCombo.objects.update_or_create(
             marca=marca,
-            color=color,
-            talle=talle,
-            cantidad=cantidad,
             defaults={
                 'efectivo': efectivo,
                 'debito': debito,
