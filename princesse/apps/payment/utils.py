@@ -119,11 +119,26 @@ def generate_invoice_pdf(data):
     c.drawString(100, y_position - 20, f"Fecha de Retiro: {data['pick_up_date']}")
     c.drawString(100, y_position - 40, f"Fecha de Devolución: {data['return_date']}")
 
+    # Agregar reglas al pie del PDF
+    rules_y_position = y_position - 80
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(30, rules_y_position, "Importante:")
+    c.setFont("Helvetica", 10)
+    rules_text = [
+        "La devolución de las prendas se hará dentro de la fecha establecida y en las mismas condiciones en que se han entregado,",
+        "de lo contrario se abonará la multa correspondiente:",
+        "a) El total de la limpieza de las mismas.",
+        "b) Por el deterioro de las prendas se abonará el valor de las mismas.",
+        "c) Las prendas se deberán devolver el día indicado, de lo contrario abonará un recargo por día sobre el monto del alquiler."
+    ]
+
+    for rule in rules_text:
+        c.drawString(30, rules_y_position - 20, rule)
+        rules_y_position -= 15
+
     # Cerrar el canvas y devolver el contenido en formato PDF
     c.showPage()
     c.save()
     
     buffer.seek(0)
     return buffer
-
-

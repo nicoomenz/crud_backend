@@ -40,10 +40,10 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                 # Crear el pago
                 productos_data = data.pop('productos', [])
                 combo_data = data.pop('combo', [])
-                
                 payment = Payment.objects.create(client=client, **data)
                 logger.info(f"Pago creado con ID: {payment.payment_id}")
                 # Procesar productos
+                
                 for producto_data in productos_data:
                     logger.info(f"Procesando producto: {producto_data}")
                     
@@ -55,14 +55,15 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                     marca = Marca.objects.get_or_create(id=marca_data.id, defaults={'nombre': marca_data.nombre})[0] if marca_data else None
                     color = Color.objects.get_or_create(id=color_data.id, defaults={'nombre': color_data.nombre})[0]
                     talle = Talle.objects.get_or_create(nombre=talle_data)[0]
-
+                    
                     producto = Producto.objects.get(categoria=categoria, marca=marca, color=color, talle=talle)
                     logger.info(f"Producto encontrado: {producto}")
                     if producto.cantidad < producto_data['cantidad']:
                         logger.error(f"No hay suficiente cantidad del producto")
                         raise ValidationError(f"No hay suficiente cantidad del producto: {producto.categoria.nombre}. Disponible: {producto.cantidad}, Solicitado: {producto_data['cantidad']}")
                         
-                        # Actualizamos o creamos el PaymentProduct
+                    # Actualizamos o creamos el PaymentProduct
+                    
                     PaymentProduct.objects.create(payment=payment, producto=producto, cantidad=producto_data['cantidad'])
                     logger.info(f"Producto añadido al pago: {producto} (cantidad: {producto_data['cantidad']})")
                     producto.cantidad -= producto_data['cantidad']
@@ -244,12 +245,6 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                                 
                                 producto.save()
 
-
-
-
-
-
-
                 # Guardamos el objeto Payment actualizado
                 instance.save()
                 logger.info(f"Recibo modificado: {instance}")
@@ -273,9 +268,8 @@ class PaymentsViewSet(viewsets.ModelViewSet):
         data = request.data
         # Generar el PDF
         pdf_buffer = generate_invoice_pdf(data)
-
         # Enviar el correo
-        email = EmailMessage( subject=f"Recibo de Pago #{data['payment_id']}", body="Adjuntamos su recibo en formato PDF.", from_email="nicoomenz@gmail.com", to=[data['client']['email']],)
+        email = EmailMessage( subject=f"Recibo de Pago #{data['payment_id']}", body="Adjuntamos su recibo en formato PDF.", from_email="conico.company@gmail.com", to=[data['client']['email']],)
         email.attach(f"recibo_{data['payment_id']}.pdf", pdf_buffer.read(), "application/pdf")
         email.send()
 
