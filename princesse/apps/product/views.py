@@ -18,6 +18,10 @@ class ProductosViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_class = ProductsFilter
 
+    def get_queryset(self):
+    # Retornar solo los usuarios activos
+        return super().get_queryset().filter(active=True)
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -101,6 +105,24 @@ class ProductosViewSet(viewsets.ModelViewSet):
         # Devuelve la respuesta con los datos actualizados
         return Response(self.get_serializer(instance).data, status=status.HTTP_200_OK)
     
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.active = False
+        instance.save()
+
+         # Eliminar el producto de los combos
+        combos = Combo.objects.filter(productos=instance)
+        for combo in combos:
+            combo.productos.remove(instance)
+            # Si el combo no tiene más productos, eliminarlo
+            if not combo.productos.exists():
+                combo.delete()
+
+        return Response(
+            {"detail": f"El producto con ID {instance.id} fue eliminado."},
+            status=status.HTTP_200_OK,
+        )
+    
 class ProductosAmountsViewSet(viewsets.ModelViewSet):
     serializer_class = PrecioProductoSerializer
     queryset = PrecioProducto.objects.all()
@@ -178,6 +200,9 @@ class CombosViewSet(viewsets.ModelViewSet):
     
         serializer_class = ComboSerializer
         queryset = Combo.objects.all()
+        def get_queryset(self):
+        # Retornar solo los usuarios activos
+            return super().get_queryset().filter(active=True)
 
         def create(self, request, *args, **kwargs):
             serializer = self.get_serializer(data=request.data)
@@ -201,6 +226,16 @@ class CombosViewSet(viewsets.ModelViewSet):
             # Serializar y devolver la lista de productos creados
             response_data = ComboSerializer(combo).data
             return Response(response_data, status=status.HTTP_200_OK)
+        
+        def destroy(self, request, *args, **kwargs):
+            instance = self.get_object()
+            instance.active = False
+            instance.save()
+                    
+            return Response(
+                {"detail": f"El combo con ID {instance.id} fue eliminado."},
+                status=status.HTTP_200_OK,
+        )
 
 class CategoriasViewSet(viewsets.ModelViewSet):
 

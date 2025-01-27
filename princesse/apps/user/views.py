@@ -50,4 +50,40 @@ class ClientPayerViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_class = ClientsFilter
 
+    def get_queryset(self):
+    # Retornar solo los usuarios activos
+        return super().get_queryset().filter(is_active=True)
+
+    def create(self, request, *args, **kwargs):
+        # Obtener el DNI del cliente desde los datos proporcionados
+        dni = request.data.get("dni")
+        
+        # Verificar si ya existe un cliente con el mismo DNI
+        existing_client = ClientPayer.objects.filter(dni=dni).first()
+        
+        if existing_client:
+            # Si el cliente existe y está desactivado, lo reactivamos
+            if not existing_client.is_active:
+                existing_client.is_active = True
+                existing_client.save()
+                serializer = self.get_serializer(existing_client)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            # Si el cliente ya está activo, devolver un mensaje indicando que ya existe
+            return Response(
+                {"detail": f"ClientPayer with DNI {dni} already exists and is active."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # Si no existe, crear un nuevo cliente
+        return super().create(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.is_active = False
+        instance.save()
+        return Response(
+            {"detail": f"El cliente con ID {instance.id} fue eliminado."},
+            status=status.HTTP_200_OK,
+        )
+
     
