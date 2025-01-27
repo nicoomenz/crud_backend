@@ -159,6 +159,7 @@ class Producto(models.Model):
     precio = models.ForeignKey(PrecioProducto, on_delete=models.CASCADE, related_name="productos")  # Referencia al modelo Precio
 
     cantidad = models.PositiveIntegerField(default=0)
+    active = models.BooleanField(default=True)
     
     def __str__(self):
         return f"{self.categoria.nombre} - {self.color.nombre} - {self.talle.nombre}"
@@ -183,7 +184,8 @@ class Combo(models.Model):
     color = models.ForeignKey(Color, on_delete=models.CASCADE)
     talle = models.ForeignKey(Talle, on_delete=models.CASCADE)
     productos = models.ManyToManyField(Producto, blank=True)
-    precio = models.ForeignKey(PrecioCombo, on_delete=models.CASCADE, related_name="combos") 
+    precio = models.ForeignKey(PrecioCombo, on_delete=models.CASCADE, related_name="combos")
+    active = models.BooleanField(default=True)
 
     def __str__(self):
         return f"{self.marca.nombre} - {self.color.nombre} - {self.talle.nombre}"

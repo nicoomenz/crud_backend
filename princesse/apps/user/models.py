@@ -49,6 +49,7 @@ class ClientPayer(models.Model):
     email = models.EmailField(_("Direccion de email"), max_length=254)
     phone = models.CharField(_('Telefono'), max_length=25, blank=True, null=True)
     iva = models.CharField(max_length=30, choices=IVA_CHOICES, default=IVA_CHOICES[0][0], blank=True, null=True)
+    is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     def __str__(self):
         return f"{self.dni} - {self.first_name} {self.last_name}"

@@ -20,7 +20,10 @@ class PaymentsViewSet(viewsets.ModelViewSet):
 
     serializer_class = PaymentSerializer
     queryset = Payment.objects.all()
-
+    def get_queryset(self):
+        # Retornar solo los usuarios activos
+            return super().get_queryset().filter(is_active=True)
+    
     @transaction.atomic
     def create(self, request, *args, **kwargs):
         data = request.data
@@ -257,11 +260,17 @@ class PaymentsViewSet(viewsets.ModelViewSet):
             logger.error(f"Error al crear el pago: {str(e)}", exc_info=True)
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.is_active = False
+        instance.save()
+                
+        return Response(
+            {"detail": f"El recibo con ID {instance.payment_id} fue eliminado."},
+            status=status.HTTP_200_OK,
+        ) 
         
-
-
-        
-
     @action(detail=False, methods=['post'], url_path='send-receipt-email')
     def send_receipt_email(self, request):
         # Obtener los datos del cuerpo de la solicitud

@@ -193,49 +193,36 @@ class ProductoSerializer(serializers.ModelSerializer):
         productos = []
         for variante_data in variantes_data:
             for talle_data in variante_data['talles']:
-                producto_data = {
-                    'categoria': categoria,
-                    'marca': marca,
-                    'color': variante_data['color'],
-                    'talle': talle_data['nombre'],
-                    'tela': validated_data.get('tela'),
-                    'precio': precio,  # Asignar el registro Precio recién creado
-                    'cantidad': talle_data['cantidad'],
-                }
-                producto = Producto.objects.create(**producto_data)
-                productos.append(producto)
+                # Buscar si el producto ya existe
+                existing_producto = Producto.objects.filter(
+                    categoria=categoria,
+                    marca=marca,
+                    color=variante_data['color'],
+                    talle=talle_data['nombre'],
+                    precio=precio
+                ).first()  # Traemos el primer resultado, si existe
+
+                if existing_producto:
+                    # Si existe el producto, lo activamos
+                    existing_producto.active = True
+                    existing_producto.cantidad = talle_data['cantidad']
+                    existing_producto.save()
+                    productos.append(existing_producto)
+                else:
+                    # Si no existe, lo creamos
+                    producto_data = {
+                        'categoria': categoria,
+                        'marca': marca,
+                        'color': variante_data['color'],
+                        'talle': talle_data['nombre'],
+                        'tela': validated_data.get('tela'),
+                        'precio': precio,  # Asignar el registro Precio recién creado
+                        'cantidad': talle_data['cantidad'],
+                    }
+                    producto = Producto.objects.create(**producto_data)
+                    productos.append(producto)
 
         return productos
-
-    # def update(self, instance, validated_data):
-
-    #     categoria_id = validated_data.get("categoria")
-    #     marca_id = validated_data.get("marca", None)
-    #     efectivo = validated_data.get("efectivo")
-    #     debito = validated_data.get("debito")
-    #     credito = validated_data.get("credito")
-    #      # Actualizar como en el ejemplo anterior
-    #     validated_data.pop('variantes', None)
-        
-
-    #     # Delegar la lógica de actualización al modelo Precio
-    #     if categoria_id:
-    #         try:
-
-    #             PrecioProducto.actualizar_precio(
-    #                 categoria_id=categoria_id,
-    #                 marca_id=marca_id,
-    #                 efectivo=efectivo,
-    #                 debito=debito,
-    #                 credito=credito,
-    #             )
-    #         except ValueError as e:
-    #             raise serializers.ValidationError({"error": str(e)})
-            
-    #     for attr, value in validated_data.items():
-    #         setattr(instance, attr, value)
-    #     instance.save()
-    #     return instance
     
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -345,32 +332,39 @@ class ComboSerializer(serializers.ModelSerializer):
 
         validated_data['precio'] = precio  # Asignar el precio al validated_data
 
-        combo = Combo.objects.create(**validated_data)  # Creamos el Combo principal
+        combo = Combo.objects.filter(
+        marca=marca,
+        color=color,
+        talle=talle,
+        ).first()
 
+        if combo:
+            # Si el Combo existe y está desactivado, lo reactivamos
+            if not combo.active:
+                combo.active = True
+                combo.save()
+            combo.productos.clear()
+        else:
+            # Si no existe, lo creamos
+            combo = Combo.objects.create(**validated_data)
+
+        # Asignamos los productos relacionados
         for producto_data in productos_data:
             producto_id = producto_data.get("id")
             combo.productos.add(producto_id)
 
-        # Asignamos los productos relacionados
-        
         return combo
 
     def update(self, instance, validated_data):
         marca = validated_data.get('marca')
-        color = validated_data.get('color')
-        talle = validated_data.get('talle')
         efectivo = validated_data.pop('efectivo')
         debito = validated_data.pop('debito')
         credito = validated_data.pop('credito')
         productos_data = validated_data.pop('productos', [])
-        cantidad = validated_data.get('cantidad')
         
         # Crear un nuevo registro en el modelo Precio
         precio, _ = PrecioCombo.objects.update_or_create(
             marca=marca,
-            color=color,
-            talle=talle,
-            cantidad= cantidad,
             defaults={
                 'efectivo': efectivo,
                 'debito': debito,
