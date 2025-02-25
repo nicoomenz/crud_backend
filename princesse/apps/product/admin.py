@@ -43,3 +43,7 @@ class PrecioComboAdmin(admin.ModelAdmin):
 @admin.register(Combo)
 class ComboAdmin(admin.ModelAdmin):
     list_display = ('id', 'marca')
+
+@admin.register(CustomProduct)
+class CustomProductAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'color', 'talle', 'cantidad', 'precio')

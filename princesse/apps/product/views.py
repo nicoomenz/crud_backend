@@ -70,11 +70,10 @@ class ProductosViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         
         # Obtén los datos validados del request
-        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer = ProductDetailSerializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         
         validated_data = serializer.validated_data
-
         # Extrae los datos necesarios
         categoria_id = validated_data.get("categoria")
         marca_id = validated_data.get("marca", None)
