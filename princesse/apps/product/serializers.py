@@ -143,6 +143,34 @@ class ProductDetailSerializer(serializers.Serializer):
 
     class Meta:
         fields = ['categoria', 'marca', 'color', 'talle', 'tela', 'cantidad','precio']
+
+class SimpleProductSerializer(serializers.Serializer):
+    """Producto simple (sin categoría, solo atributos básicos)."""
+    name = serializers.CharField(max_length=100)
+    color = serializers.CharField(max_length=100, allow_blank=True, required=False)
+    talle = serializers.CharField(max_length=100, allow_null=True, required=False)
+    precio = serializers.DecimalField(max_digits=10, decimal_places=2)
+    cantidad = serializers.IntegerField(min_value=1)
+
+    class Meta:
+        fields = ['name', 'color', 'talle', 'precio', 'cantidad']
+
+class ProductSerializer(serializers.Serializer):
+    """Acepta productos simples (objeto con nombre, color, talle) o detallados."""
+    
+    def to_internal_value(self, data):
+        if isinstance(data, dict):
+            # Diferenciar según la presencia de 'categoria' (producto detallado)
+            if 'categoria' in data:
+                serializer = ProductDetailSerializer(data=data)
+            else:
+                serializer = SimpleProductSerializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            return serializer.validated_data
+        else:
+            raise serializers.ValidationError("Formato inválido. Debe ser un objeto.")
+
+
 class ProductoSerializer(serializers.ModelSerializer):
     variantes = VarianteSerializer(many=True, write_only=True, required=False)
     categoria = PrimaryKeyOrNameRelatedField(queryset=Categoria.objects.all())

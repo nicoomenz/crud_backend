@@ -37,6 +37,11 @@ class Payment(models.Model):
     # Relación ManyToMany con las prendas
     productos = models.ManyToManyField(Producto, blank=True)  # Puede haber cero o más productos
     combo = models.ManyToManyField(Combo, blank=True)  # Puede haber cero o más trajes
+    custom_products = models.ManyToManyField(
+        CustomProduct, 
+        related_name="payments", 
+        blank=True
+    )
 
     is_active = models.BooleanField(default=True)
 

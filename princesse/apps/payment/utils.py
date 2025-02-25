@@ -34,41 +34,69 @@ def generate_invoice_pdf(data):
     c.drawString(100, 650, f"DNI: {data['client']['dni']}")
     c.drawString(100, 630, f"CUIT: {data['client']['cuit']}")
     c.drawString(100, 610, f"Dirección: {data['client']['direccion']}")
-    c.drawString(100, 590, f"Email: {data['client']['email']}")
-    c.drawString(100, 570, f"Teléfono: {data['client']['phone']}")
-    c.drawString(100, 550, f"IVA: {data['client']['iva']}")
+    c.drawString(300, 670, f"Email: {data['client']['email']}")
+    c.drawString(300, 650, f"Teléfono: {data['client']['phone']}")
+    c.drawString(300, 630, f"IVA: {data['client']['iva']}")
 
     # Línea de separación
     c.setStrokeColor(colors.black)
     c.setLineWidth(1)
-    c.line(100, 540, 500, 540)
+    c.line(100, 580, 500, 580)
 
     # Detalles de los productos
     c.setFont("Helvetica-Bold", 14)
-    c.drawString(100, 510, "Productos Facturados:")
+    c.drawString(100, 560, "Productos Facturados:")
     c.setFont("Helvetica", 12)
     
     # Crear encabezado de tabla
     c.setFont("Helvetica-Bold", 12)
-    c.drawString(100, 490, "Producto")
-    c.drawString(300, 490, "Cantidad")
-    c.drawString(400, 490, "Precio Unitario")
-    c.drawString(500, 490, "Total")
+    c.drawString(100, 540, "Producto")
+    c.drawString(300, 540, "Cantidad")
+    c.drawString(400, 540, "Precio Unitario")
+    c.drawString(500, 540, "Total")
     
-    y_position = 470
+    y_position = 520
     c.setFont("Helvetica", 12)
 
     # Inicializar precio total de los productos
     total_productos = 0
+    for combo in data.get('combo', []):
+        descripcion = f"{combo['marca']['nombre']} - {combo['color']['nombre']} - {combo['talle']['nombre']}"
+        precio_unitario = float(combo['precio'].get(data['price_type'], 0))
+        precio_total_combo = precio_unitario * combo['cantidad']
+        c.drawString(100, y_position, f"Combo: {descripcion}")
+        y_position -= 20
+        for producto in combo['productos']:
+            detalle = f"{producto['categoria']['nombre']} - {producto['marca']['nombre']} - {producto['color']['nombre']}"
+            c.drawString(120, y_position, detalle)
+            c.drawString(300, y_position, f"{producto['cantidad']}")
+            y_position -= 20
+    
+    c.drawString(400, y_position, f"${precio_unitario}")
+    c.drawString(500, y_position, f"${precio_total_combo}")
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(100, y_position - 20, "Productos Facturados:")
+    c.setFont("Helvetica", 12)
+    y_position -= 40
 
     # Imprimir productos
     for producto in data['productos']:
-        precio_por_producto = float(producto['precio']['efectivo']) * producto['cantidad']
-        c.drawString(100, y_position, f"{producto['categoria']['nombre']} - {producto['marca']['nombre']} - {producto['color']['nombre']}")
+    # Determinar si el producto tiene estructura detallada o es un CustomProduct
+        if "categoria" in producto:
+            descripcion = f"{producto['categoria']['nombre']} - {producto['marca']['nombre']} - {producto['color']['nombre']}"
+            precio_unitario = float(producto['precio'].get(data['price_type'], 0))
+        else:
+            descripcion = f"{producto['name']} - {producto['color']} - {producto['talle']}"
+            precio_unitario = float(producto['precio'])
+
+        precio_por_producto = precio_unitario * producto["cantidad"]
+
+        c.drawString(100, y_position, descripcion)
         c.drawString(300, y_position, f"{producto['cantidad']}")
-        c.drawString(400, y_position, f"${producto['precio']['efectivo']}")
+        c.drawString(400, y_position, f"${precio_unitario}")
         c.drawString(500, y_position, f"${precio_por_producto}")
-        total_productos += precio_por_producto  # Sumar el total de los productos
+
+        total_productos += precio_por_producto
         y_position -= 20  # Espacio para el siguiente producto
 
     # Descripción
@@ -78,13 +106,19 @@ def generate_invoice_pdf(data):
     c.setFont("Helvetica", 12)
     c.drawString(100, description_y_position - 20, f"{data['description']}")
 
+    precio_total = precio_total_combo + total_productos + data['detail_amount']
+    # Precio total final
+    final_y_position = description_y_position - 40
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(100, final_y_position, f"Precio Total: ${precio_total}")
+
     # Línea de separación
     c.setStrokeColor(colors.black)
     c.setLineWidth(1)
-    c.line(100, description_y_position - 40, 500, description_y_position - 40)
+    c.line(100, description_y_position - 60, 500, description_y_position - 60)
 
     # Detalles del pago (Precios finales)
-    y_position = description_y_position - 60
+    y_position = description_y_position - 80
     c.setFont("Helvetica-Bold", 14)
     c.drawString(100, y_position, "Detalles del Pago:")
     c.setFont("Helvetica", 12)
@@ -98,15 +132,17 @@ def generate_invoice_pdf(data):
     y_position -= 20
     c.drawString(100, y_position, f"Seña: ${data['small_amount']}")
     y_position -= 20
-    c.drawString(100, y_position, f"Total por Detalles: ${data['detail_amount']}")
+    y_position = description_y_position - 100
+    c.drawString(300, y_position, f"Total por Detalles: ${data['detail_amount']}")
     y_position -= 20
-    c.drawString(100, y_position, f"Descuento: {data['descuento']}%")
+    c.drawString(300, y_position, f"Descuento: {data['descuento']}%")
     y_position -= 20
-    c.drawString(100, y_position, f"Subtotal: ${data['subtotal_amount']}")
+    c.drawString(300, y_position, f"Subtotal: ${data['subtotal_amount']}")
     y_position -= 20
-    c.drawString(100, y_position, f"Total a Pagar: ${data['total_amount']}")
+    c.drawString(300, y_position, f"Total a Pagar: ${data['total_amount']}")
 
     # Línea de separación
+    y_position = description_y_position - 160
     c.setStrokeColor(colors.black)
     c.setLineWidth(1)
     c.line(100, y_position - 10, 500, y_position - 10)

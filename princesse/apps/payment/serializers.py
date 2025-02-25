@@ -2,8 +2,8 @@ from datetime import datetime
 from payment.models import *
 from rest_framework import serializers
 
-from user.serializers import ClientPayerDetailSerializer, ClientPayerSerializer
-from product.serializers import CategoriaSerializer, ColorSerializer, ComboDetailSerializer, ComboSerializer, MarcaSerializer, PrecioComboSerializer, PrecioProductoSerializer, ProductoSerializer, ProductDetailSerializer, TalleSerializer
+from user.serializers import ClientPayerDetailSerializer
+from product.serializers import CategoriaSerializer, ColorSerializer, ComboDetailSerializer, MarcaSerializer, PrecioComboSerializer, PrecioProductoSerializer, ProductSerializer, TalleSerializer
 
 class PaymentProductSerializer(serializers.ModelSerializer):
     class Meta:
@@ -14,9 +14,14 @@ class PaymentComboSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaymentCombo
         fields = ['producto', 'cantidad']
+
+class PaymentCustomProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomProduct
+        fields = ['name', 'price', 'cantidad']
 class PaymentSerializer(serializers.ModelSerializer):
     client = ClientPayerDetailSerializer()
-    productos = ProductDetailSerializer(many=True, required=False)
+    productos = ProductSerializer(many=True, required=False)
     combo = ComboDetailSerializer(many=True, required=False)
 
     class Meta:
@@ -73,6 +78,7 @@ class PaymentSerializer(serializers.ModelSerializer):
             }
             productos_representation.append(producto_data)
         data['productos'] = productos_representation
+        data['productos'].extend(list(instance.custom_products.all().values('name', 'color', 'talle', 'precio', 'cantidad')))
         combos_representation = []
         for combo in instance.combo.all():
             payment_combo = PaymentCombo.objects.filter(payment=instance, combo=combo).first()
@@ -101,4 +107,5 @@ class PaymentSerializer(serializers.ModelSerializer):
             combo_data['productos'] = productos_data
             combos_representation.append(combo_data)
         data['combo'] = combos_representation
+        # data['custom_product'] = instance.custom_products.all().values('name', 'color', 'talle', 'precio', 'cantidad')
         return data

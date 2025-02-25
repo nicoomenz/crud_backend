@@ -178,6 +178,16 @@ class Producto(models.Model):
             )
         ]
 
+class CustomProduct(models.Model):
+    name = models.CharField(_("Descripción"), max_length=100)
+    color = models.CharField(_("Color"), max_length=100)
+    talle = models.CharField(_("Talle"), max_length=100)
+    precio = models.DecimalField(_("Precio"), max_digits=10, decimal_places=2, default=0)
+    cantidad = models.PositiveIntegerField()
+
+    def __str__(self):
+        return self.name  
+
 class Combo(models.Model):
 
     marca = models.ForeignKey(Marca, on_delete=models.CASCADE, blank=True, null=True)
@@ -189,3 +199,4 @@ class Combo(models.Model):
 
     def __str__(self):
         return f"{self.marca.nombre} - {self.color.nombre} - {self.talle.nombre}"
+    
