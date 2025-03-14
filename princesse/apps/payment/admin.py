@@ -11,7 +11,7 @@ class PaymentAdmin(admin.ModelAdmin):
 
 @admin.register(PaymentProduct)
 class PaymentProductAdmin(admin.ModelAdmin):
-    list_display = ('payment', 'producto', 'cantidad')
+    list_display = ('id', 'payment', 'producto', 'cantidad')
 
 
 @admin.register(PaymentCombo)

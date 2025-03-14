@@ -1,8 +1,8 @@
 import json
 from django.forms import ValidationError
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from payment.models import *
-from payment.serializers import PaymentSerializer
+from payment.serializers import PaymentProductSerializer, PaymentSerializer
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from django.db import transaction
@@ -17,6 +17,42 @@ from payment.utils import generate_invoice_pdf
 import logging
 
 logger = logging.getLogger(__name__)
+
+class PaymentProductViewSet(viewsets.ModelViewSet):
+    queryset = Producto.objects.all()
+    serializer_class = PaymentProductSerializer
+
+    @action(detail=True, methods=['get'], url_path='price')
+    def get_price(self, request, pk=None):
+        try:
+            
+            # Buscar si existe un precio registrado en algún PaymentProduct
+            payment_products = PaymentProduct.objects.filter(payment=pk)
+            
+            if not payment_products.exists():
+                return Response(
+                    {"detail": "No hay productos asociados a este pago."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            products = [
+                {   
+                    'payment': pp.payment.payment_id,
+                    'producto_id': pp.producto.id,
+                    'precio_efectivo': pp.precio_efectivo,
+                    'precio_debito': pp.precio_debito,
+                    'precio_credito': pp.precio_credito,
+                    'cantidad': pp.cantidad
+                }
+                for pp in payment_products
+            ]
+
+            return Response(products, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 class PaymentsViewSet(viewsets.ModelViewSet):
 
@@ -68,8 +104,14 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                                 raise ValidationError(f"No hay suficiente cantidad del producto: {producto.categoria.nombre}. Disponible: {producto.cantidad}, Solicitado: {producto_data['cantidad']}")
                                 
                             # Actualizamos o creamos el PaymentProduct
+                            precio_efectivo = producto_data['precio'].efectivo
+                            precio_debito = producto_data['precio'].debito
+                            precio_credito = producto_data['precio'].credito
+                            PaymentProduct.objects.create(payment=payment, producto=producto, cantidad=producto_data['cantidad'],
+                                                        precio_efectivo=precio_efectivo,
+                                                        precio_debito=precio_debito,
+                                                        precio_credito=precio_credito)
                             
-                            PaymentProduct.objects.create(payment=payment, producto=producto, cantidad=producto_data['cantidad'])
                             logger.info(f"Producto añadido al pago: {producto} (cantidad: {producto_data['cantidad']})")
 
                             Producto.objects.filter(id=producto.id).update(cantidad=F('cantidad') - producto_data['cantidad'])
@@ -118,10 +160,19 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                                     raise ValidationError(f"No hay suficiente cantidad del producto: {producto.categoria.nombre}. Disponible: {producto.cantidad}, Solicitado: {combo['cantidad']}")
                                 
                                 # Actualizamos o creamos el PaymentProduct
-                                PaymentProduct.objects.create(payment=payment, producto=producto, cantidad=combo['cantidad'])
+                                precio_efectivo = producto_data['precio']['efectivo'] if producto_data['precio']['efectivo'] else producto_data['precio'].efectivo
+                                precio_debito = producto_data['precio']['debito'] if producto_data['precio']['debito'] else producto_data['precio'].debito
+                                precio_credito = producto_data['precio']['credito'] if producto_data['precio']['credito'] else producto_data['precio'].credito
+                                PaymentProduct.objects.create(payment=payment, producto=producto, cantidad=combo['cantidad'],
+                                                        precio_efectivo=precio_efectivo,
+                                                        precio_debito=precio_debito,
+                                                        precio_credito=precio_credito)
                                 logger.info(f"Producto añadido al pago: {producto} (cantidad: {combo['cantidad']})")
-                                producto.cantidad -= combo['cantidad']
-                                producto.save()
+
+                                Producto.objects.filter(id=producto.id).update(cantidad=F('cantidad') - combo['cantidad'])
+                                logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")
+
+                                payment.productos.add(producto)
                                 logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")
 
                     serializer = self.get_serializer(payment)
@@ -135,47 +186,50 @@ class PaymentsViewSet(viewsets.ModelViewSet):
     
     def update(self, request, *args, **kwargs):
         with transaction.atomic():
+            instance = self.get_object()
             data = request.data
             try:
-                
-                payment_serializer = PaymentSerializer(data=data)
+
+                payment_serializer = PaymentSerializer(instance, data=data, partial=True)
                 if payment_serializer.is_valid():
-                    instance = self.get_object()
                     validated_data = payment_serializer.validated_data
                     previous_status = instance.status
-                
-                    # Actualizamos los campos simples
-                    instance.payment_date = validated_data.get('payment_date', instance.payment_date)
-                    instance.small_amount_ok = validated_data.get('small_amount_ok', instance.small_amount_ok)
-                    instance.small_amount = validated_data.get('small_amount', instance.small_amount)
-                    instance.subtotal_amount = validated_data.get('subtotal_amount', instance.subtotal_amount)
-                    instance.descuento = validated_data.get('descuento', instance.descuento)
-                    instance.detail_amount = validated_data.get('detail_amount', instance.detail_amount)
-                    instance.total_amount = validated_data.get('total_amount', instance.total_amount)
-                    instance.pick_up_date = validated_data.get('pick_up_date', instance.pick_up_date)
-                    instance.return_date = validated_data.get('return_date', instance.return_date)
-                    instance.price_type = validated_data.get('price_type', instance.price_type)
-                    instance.description = validated_data.get('description', instance.description)
-                    instance.status = validated_data.get('status', instance.status)
-                    
-                    client_data = validated_data.pop('client')
-                    # Buscar el cliente existente
-                    try:
-                        client = ClientPayer.objects.get(id=client_data['id'])
-                    except ClientPayer.DoesNotExist:
-                        raise ValueError("El cliente con el ID proporcionado no existe")
 
-                    # Actualizar solo si los datos han cambiado
-                    for key, value in client_data.items():
-                        if getattr(client, key) != value:
-                            setattr(client, key, value)
-
-                    client.save()
-                    instance.client = client
-                    logger.info(f"Cliente modificado: {client}")
+                    # Si se envió el cliente, actualizamos
+                    if 'client' in validated_data:
+                        client_data = validated_data.pop('client')
+                        try:
+                            client = ClientPayer.objects.get(id=client_data['id'])
+                            for key, value in client_data.items():
+                                if getattr(client, key) != value:
+                                    setattr(client, key, value)
+                            client.save()
+                            instance.client = client
+                            logger.info(f"Cliente modificado: {client}")
+                        except ClientPayer.DoesNotExist:
+                            raise ValidationError("El cliente con el ID proporcionado no existe")
+                        
                     # Actualizamos los productos
-                    productos_data = validated_data.pop('productos', [])
+                    if 'productos' in validated_data:
+                        productos_data = validated_data.pop('productos', None)
+
+                    # Si no vienen productos, tomamos los productos asociados a la instancia
+                    else:
+                        productos_data = instance.productos.all()
+                    
+                    
                     for producto_data in productos_data:
+                        
+                        if isinstance(producto_data, Producto):
+                            producto_data = {
+                                'categoria': producto_data.categoria,
+                                'marca': producto_data.marca,
+                                'color': producto_data.color,
+                                'talle': producto_data.talle,
+                                'precio': producto_data.precio,
+                                'cantidad': producto_data.cantidad
+                            }
+
                         if 'categoria' in producto_data:
                             logger.info(f"Procesando producto: {producto_data}")
                             categoria_data = producto_data.pop('categoria')
@@ -189,15 +243,12 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                             talle = Talle.objects.update_or_create(nombre=talle_data)[0]
 
                             producto = Producto.objects.get(categoria=categoria, marca=marca, color=color, talle=talle)
-
-                            # Si el estado cambió a "DEVUELTO", revertimos la cantidad
-                            if previous_status != 'DEVUELTO' and instance.status == 'DEVUELTO':
+                            if previous_status != 'DEVUELTO' and request.data['status'] == 'DEVUELTO':
                                 check_cantidad = PaymentProduct.objects.get(payment=instance, producto=producto)
                                 if check_cantidad:
                                     # Añadir la cantidad de productos devueltos
                                     Producto.objects.filter(id=producto.id).update(cantidad=F('cantidad') + check_cantidad.cantidad)
                                     logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")
-                                    check_cantidad.delete()  # Eliminar el registro de la relación de productos con el pago
                                 logger.info(f"Cantidad de producto devuelta: {producto.categoria.nombre}, nueva cantidad: {producto.cantidad}")
                             else:
                                 if producto.cantidad < producto_data['cantidad']:
@@ -205,19 +256,42 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                                     raise ValidationError(f"No hay suficiente cantidad del producto: {producto.categoria.nombre}. Disponible: {producto.cantidad}, Solicitado: {producto_data['cantidad']}")
                                 
                                 # Actualizamos o creamos el PaymentProduct
-                                check_cantidad = PaymentProduct.objects.get(payment=instance, producto=producto).cantidad
+                                payment_product = PaymentProduct.objects.filter(payment=instance.payment_id, producto=producto).first()
                                 
-                                if producto_data['cantidad'] != check_cantidad:
-                                    PaymentProduct.objects.update(payment=instance, producto=producto, cantidad=producto_data['cantidad'])
-                                    logger.info(f"Se actualizó la cantidad de pedidos al producto")
+                                if payment_product:
+                                    check_data = {
+                                        'payment_id': data['payment_id'],
+                                        'status': data['status'],
+                                    }
+                                    if producto_data['cantidad'] != payment_product.cantidad and data != check_data:
+                                        PaymentProduct.objects.filter(payment=instance.payment_id, producto=producto).update(cantidad=producto_data['cantidad'])
+                                        logger.info(f"Se actualizó la cantidad de pedidos al producto")
+                                        Producto.objects.filter(id=producto.id).update(cantidad=F('cantidad') + payment_product.cantidad - producto_data['cantidad'])
+                                        logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")
+                                    elif data == check_data:
+                                        Producto.objects.filter(id=producto.id).update(cantidad=F('cantidad') - payment_product.cantidad)
+                                        logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")                              
+                                else:
+                                    precio_efectivo = producto_data['precio'].efectivo
+                                    precio_debito = producto_data['precio'].debito
+                                    precio_credito = producto_data['precio'].credito
+                                    PaymentProduct.objects.create(payment=instance, producto=producto, cantidad=producto_data['cantidad'],
+                                                                precio_efectivo=precio_efectivo,
+                                                                precio_debito=precio_debito,
+                                                                precio_credito=precio_credito)
+                                    
+                                    logger.info(f"Producto añadido al pago: {producto} (cantidad: {producto_data['cantidad']})")
+
                                     Producto.objects.filter(id=producto.id).update(cantidad=F('cantidad') - producto_data['cantidad'])
                                     logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")
-                                
-                                producto.save()
+
+                                instance.productos.add(producto)
+                                logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")
+                                instance.save()
 
                         else:
                             # Producto simple => CustomProduct
-                            custom_product = CustomProduct.objects.update(
+                            custom_product, _ = CustomProduct.objects.update_or_create(
                                 name=producto_data['name'],
                                 color=producto_data.get('color'),
                                 talle=producto_data.get('talle'),
@@ -227,54 +301,79 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                             instance.custom_products.add(custom_product)
                             logger.info(f"CustomProduct modificado para Payment {instance.payment_id}")
                 
+                    # Actualizamos los combo
+                    if 'combo' in validated_data:
+                        combos_data = validated_data.pop('combo', None)
 
-                    # Procesar combos
-                    combo_data = validated_data.get('combo', [])
-                    if combo_data and isinstance(combo_data, list):
-                        for combo in combo_data:
-                            combo_id = combo["id"]
-                            combo_instance = Combo.objects.get(id=combo_id)
-                            instance.combo.add(combo_instance)
-                            logger.info(f"Combo añadido al pago: {combo_instance}")
-                            productos = combo.get("productos", [])
-                            # Restar cantidades de los productos dentro del combo
-                            for producto_data in productos:
-                                
-                                categoria_data = producto_data.get('categoria')
-                                marca_data = producto_data.get('marca')
-                                color_data = producto_data.get('color')
-                                talle_data = producto_data.get('talle')
-                                categoria = Categoria.objects.get_or_create(id=categoria_data['id'], defaults={'nombre': categoria_data['nombre']})[0]
-                                marca = Marca.objects.get_or_create(id=marca_data['id'], defaults={'nombre': marca_data['nombre']})[0] if marca_data else None
-                                color = Color.objects.get_or_create(id=color_data['id'], defaults={'nombre': color_data['nombre']})[0]
-                                talle = Talle.objects.get_or_create(nombre=talle_data['nombre'])[0]
-                                producto = Producto.objects.get(categoria=categoria, marca=marca, color=color, talle=talle)
-                                logger.info(f"Producto encontrado: {producto}")
+                    # Si no vienen combo, tomamos los productos asociados a la instancia
+                    else:
+                        combos_data = instance.combo.all()
+                    
+                    
+                    for combo in combos_data:
+                        if isinstance(combo, Combo):
+                            combo = {
+                                'id': combo.id,
+                                'marca': combo.marca,
+                                'color': combo.color,
+                                'talle': combo.talle,
+                                'precio': combo.precio,
+                                'productos': combo.productos.all(),
+                            }
+                        combo_id = combo["id"]
+                        combo_instance = Combo.objects.get(id=combo_id)
+                        instance.combo.add(combo_instance)
+                        logger.info(f"Combo añadido al pago: {combo_instance}")
+                        productos = combo.get("productos", [])
+                        # Restar cantidades de los productos dentro del combo
+                        for producto_data in productos:
+                            if isinstance(producto_data, Producto):
+                                producto_data = {
+                                    'categoria': {'id': producto_data.categoria.id, 'nombre': producto_data.categoria.nombre},
+                                    'marca': {'id': producto_data.marca.id, 'nombre': producto_data.marca.nombre},
+                                    'color': {'id': producto_data.color.id, 'nombre': producto_data.color.nombre},
+                                    'talle': {'nombre': producto_data.talle.nombre},
+                                    'precio': producto_data.precio,
+                                    'cantidad': producto_data.cantidad
+                                }
+                            categoria_data = producto_data.get('categoria')
+                            marca_data = producto_data.get('marca')
+                            color_data = producto_data.get('color')
+                            talle_data = producto_data.get('talle')
+                            categoria = Categoria.objects.get_or_create(id=categoria_data['id'], defaults={'nombre': categoria_data['nombre']})[0]
+                            marca = Marca.objects.get_or_create(id=marca_data['id'], defaults={'nombre': marca_data['nombre']})[0] if marca_data else None
+                            color = Color.objects.get_or_create(id=color_data['id'], defaults={'nombre': color_data['nombre']})[0]
+                            talle = Talle.objects.get_or_create(nombre=talle_data['nombre'])[0]
+                            producto = Producto.objects.get(categoria=categoria, marca=marca, color=color, talle=talle)
+                            logger.info(f"Producto encontrado: {producto}")
 
-
-                                # Si el estado cambió a "DEVUELTO", revertimos la cantidad
-                                if previous_status != 'DEVUELTO' and instance.status == 'DEVUELTO':
-                                    check_cantidad = PaymentProduct.objects.get(payment=instance, producto=producto)
-                                    if check_cantidad:
-                                        # Añadir la cantidad de productos devueltos
-                                        producto.cantidad += check_cantidad.cantidad
-                                        producto.save()
-                                        check_cantidad.delete()  # Eliminar el registro de la relación de productos con el pago
-                                    logger.info(f"Cantidad de producto devuelta: {producto.categoria.nombre}, nueva cantidad: {producto.cantidad}")
-                                else:
-                                    if producto.cantidad < combo['cantidad']:
-                                        logger.error(f"No hay suficiente cantidad del producto")
-                                        raise ValidationError(f"No hay suficiente cantidad del producto: {producto.categoria.nombre}. Disponible: {producto.cantidad}, Solicitado: {combo['cantidad']}")
-                                    
-                                    # Actualizamos o creamos el PaymentProduct
-                                    check_cantidad = PaymentProduct.objects.get(payment=instance, producto=producto).cantidad
-                                    
-                                    if combo['cantidad'] != check_cantidad:
-                                        PaymentProduct.objects.update(payment=instance, producto=producto, cantidad=combo['cantidad'])
-                                        logger.info(f"Se actualizó la cantidad de pedidos al producto")
-                                        producto.cantidad -= combo['cantidad']
-                                    
+                            # Si el estado cambió a "DEVUELTO", revertimos la cantidad
+                            if previous_status != 'DEVUELTO' and request.data['status'] == 'DEVUELTO':
+                                check_cantidad = PaymentProduct.objects.get(payment=instance, producto=producto)
+                                if check_cantidad:
+                                    # Añadir la cantidad de productos devueltos
+                                    producto.cantidad += check_cantidad.cantidad
                                     producto.save()
+                                logger.info(f"Cantidad de producto devuelta: {producto.categoria.nombre}, nueva cantidad: {producto.cantidad}")
+                            else:
+
+                                if producto.cantidad < combo['cantidad']:
+                                    logger.error(f"No hay suficiente cantidad del producto")
+                                    raise ValidationError(f"No hay suficiente cantidad del producto: {producto.categoria.nombre}. Disponible: {producto.cantidad}, Solicitado: {combo['cantidad']}")
+                                
+                                # Actualizamos o creamos el PaymentProduct
+                                check_cantidad = PaymentProduct.objects.get(payment=instance, producto=producto).cantidad
+                                
+                                if combo['cantidad'] != check_cantidad:
+                                    
+                                    PaymentProduct.objects.update(payment=instance, producto=producto, cantidad=combo['cantidad'])
+                                    logger.info(f"Se actualizó la cantidad de pedidos al producto")
+                                    producto.cantidad -= combo['cantidad']
+                                
+                                producto.save()
+                    # Actualizamos los campos simples solo si fueron enviados
+                    for attr, value in validated_data.items():
+                        setattr(instance, attr, value)
 
                     # Guardamos el objeto Payment actualizado
                     instance.save()
@@ -288,7 +387,7 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                 logger.error(f"Error al crear el pago: {str(e)}", exc_info=True)
                 return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
-
+    
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         instance.is_active = False
