@@ -43,22 +43,24 @@ class PaymentSerializer(serializers.ModelSerializer):
 
         # Llamar al método original para procesar el resto de los datos
         return super().to_internal_value(data)
-    
+
     def validate(self, data):
-        # Validar que haya al menos un producto o combo
-        productos = data.get('productos', [])
-        combo = data.get('combo', [])
+        productos = data.get('productos', getattr(self.instance, 'productos', []))
+        combo = data.get('combo', getattr(self.instance, 'combo', []))
+
+        #Validar que haya al menos un producto o combo en creación o actualización
         if not productos and not combo:
             raise serializers.ValidationError("Debe haber al menos un producto o un combo.")
 
-        # Validar las fechas
-        pick_up_date = data.get('pick_up_date')
-        return_date = data.get('return_date')
+        #Validar las fechas siempre
+        pick_up_date = data.get('pick_up_date') or getattr(self.instance, 'pick_up_date', None)
+        return_date = data.get('return_date') or getattr(self.instance, 'return_date', None)
 
         if pick_up_date and return_date and pick_up_date > return_date:
             raise serializers.ValidationError("La fecha de retiro no puede ser posterior a la fecha de devolución.")
-        
+
         return data
+
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -69,6 +71,7 @@ class PaymentSerializer(serializers.ModelSerializer):
         for producto in instance.productos.all():
             payment_product = PaymentProduct.objects.filter(payment=instance, producto=producto).first()
             producto_data = {
+                'id': producto.id,
                 'categoria': CategoriaSerializer(producto.categoria).data,
                 'marca': MarcaSerializer(producto.marca).data if producto.marca else None,
                 'color': ColorSerializer(producto.color).data,
@@ -109,3 +112,8 @@ class PaymentSerializer(serializers.ModelSerializer):
         data['combo'] = combos_representation
         # data['custom_product'] = instance.custom_products.all().values('name', 'color', 'talle', 'precio', 'cantidad')
         return data
+
+class PaymentProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PaymentProduct
+        fields = "__all__"
