@@ -269,8 +269,9 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                                         Producto.objects.filter(id=producto.id).update(cantidad=F('cantidad') + payment_product.cantidad - producto_data['cantidad'])
                                         logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")
                                     elif data == check_data:
-                                        Producto.objects.filter(id=producto.id).update(cantidad=F('cantidad') - payment_product.cantidad)
-                                        logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")                              
+                                        if previous_status == 'DEVUELTO' and request.data['status'] != 'DEVUELTO':
+                                            Producto.objects.filter(id=producto.id).update(cantidad=F('cantidad') - payment_product.cantidad)
+                                            logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")                              
                                 else:
                                     precio_efectivo = producto_data['precio'].efectivo
                                     precio_debito = producto_data['precio'].debito
@@ -281,9 +282,9 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                                                                 precio_credito=precio_credito)
                                     
                                     logger.info(f"Producto añadido al pago: {producto} (cantidad: {producto_data['cantidad']})")
-
-                                    Producto.objects.filter(id=producto.id).update(cantidad=F('cantidad') - producto_data['cantidad'])
-                                    logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")
+                                    if previous_status == 'DEVUELTO' and request.data['status'] != 'DEVUELTO':
+                                        Producto.objects.filter(id=producto.id).update(cantidad=F('cantidad') - producto_data['cantidad'])
+                                        logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")
 
                                 instance.productos.add(producto)
                                 logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")

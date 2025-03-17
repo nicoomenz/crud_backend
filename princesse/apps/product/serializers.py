@@ -138,6 +138,9 @@ class ProductDetailSerializer(serializers.Serializer):
     marca = PrimaryKeyOrNameRelatedField(queryset=Marca.objects.all(), allow_null=True)
     color = PrimaryKeyOrNameRelatedField(queryset=Color.objects.all(), allow_null=True)
     talle = PrimaryKeyOrNameRelatedField(queryset=Talle.objects.all())
+    efectivo = serializers.IntegerField(write_only=True)
+    debito = serializers.IntegerField(write_only=True)
+    credito = serializers.IntegerField(write_only=True)
     precio = PrimaryKeyforPrecio(queryset=PrecioProducto.objects.all(), required=False)
     cantidad = serializers.IntegerField(write_only=True)
 
