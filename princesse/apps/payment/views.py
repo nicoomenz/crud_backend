@@ -253,7 +253,7 @@ class PaymentsViewSet(viewsets.ModelViewSet):
 
                     # Si no vienen productos, tomamos los productos asociados a la instancia
                     
-                    elif check_data == data: 
+                    elif check_data == data:
                         productos_data = instance.productos.all()
                     
                     
@@ -266,7 +266,6 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                                 'color': producto_data.color,
                                 'talle': producto_data.talle,
                                 'precio': producto_data.precio,
-                                'cantidad': producto_data.cantidad
                             }
 
                         if 'categoria' in producto_data:
@@ -290,6 +289,9 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                                     logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")
                                 logger.info(f"Cantidad de producto devuelta: {producto.categoria.nombre}, nueva cantidad: {producto.cantidad}")
                             else:
+                                breakpoint()
+                                if not producto_data.get('cantidad'):
+                                    producto_data['cantidad'] = PaymentProduct.objects.get(payment=instance, producto=producto).cantidad
                                 if producto.cantidad < producto_data['cantidad']:
                                     logger.error(f"No hay suficiente cantidad del producto")
                                     raise ValidationError(f"No hay suficiente cantidad del producto: {producto.categoria.nombre}. Disponible: {producto.cantidad}, Solicitado: {producto_data['cantidad']}")
@@ -350,6 +352,7 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                         combos_data = instance.combo.all()
                     
                     for combo in combos_data:
+                        breakpoint()
                         if isinstance(combo, Combo):
                             combo = {
                                 'id': combo.id,
@@ -389,14 +392,16 @@ class PaymentsViewSet(viewsets.ModelViewSet):
 
                             # Si el estado cambió a "DEVUELTO", revertimos la cantidad
                             if previous_status != 'DEVUELTO' and request.data['status'] == 'DEVUELTO':
-                                check_cantidad = PaymentCombo.objects.get(payment=instance, producto=producto)
+                                check_cantidad = PaymentCombo.objects.get(payment=instance, combo=combo_instance)
                                 if check_cantidad:
                                     # Añadir la cantidad de productos devueltos
                                     producto.cantidad += check_cantidad.cantidad
                                     producto.save()
                                 logger.info(f"Cantidad de producto devuelta: {producto.categoria.nombre}, nueva cantidad: {producto.cantidad}")
                             else:
-
+                                breakpoint()
+                                if not combo.get('cantidad'):
+                                    combo['cantidad'] = PaymentCombo.objects.get(payment=instance, combo=combo_instance).cantidad
                                 if producto.cantidad < combo['cantidad']:
                                     logger.error(f"No hay suficiente cantidad del producto")
                                     raise ValidationError(f"No hay suficiente cantidad del producto: {producto.categoria.nombre}. Disponible: {producto.cantidad}, Solicitado: {combo['cantidad']}")
@@ -412,7 +417,8 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                                         logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")
                                     elif data == check_data:
                                         if previous_status == 'DEVUELTO' and request.data['status'] != 'DEVUELTO':
-                                            Producto.objects.filter(id=producto.id).update(cantidad=F('cantidad') - combo.cantidad)
+                                            breakpoint()
+                                            Producto.objects.filter(id=producto.id).update(cantidad=F('cantidad') - payment_combo.cantidad)
                                             logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")                              
 
                                     logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")
@@ -426,6 +432,8 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                                         Producto.objects.filter(id=producto.id).update(cantidad=F('cantidad') - combo['cantidad'])
                                         logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")
                                 instance.combo.add(combo_instance)
+                        if not combo.get('cantidad'):
+                            combo['cantidad'] = PaymentCombo.objects.get(payment=instance, combo=combo_instance).cantidad
                         PaymentCombo.objects.filter(payment=instance.payment_id, combo=combo_instance).update(cantidad=combo['cantidad'])
                         logger.info(f"Se actualizó la cantidad de pedidos al producto")
                         instance.save()

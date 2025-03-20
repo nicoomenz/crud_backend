@@ -331,7 +331,6 @@ class ComboSerializer(serializers.ModelSerializer):
     debito = serializers.IntegerField(write_only=True)
     credito = serializers.IntegerField(write_only=True)
     precio = serializers.PrimaryKeyRelatedField(queryset=PrecioCombo.objects.all(), required=False)
-    
     class Meta:
         model = Combo
         fields = '__all__'
