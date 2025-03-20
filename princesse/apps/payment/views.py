@@ -193,20 +193,7 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                                     logger.error(f"No hay suficiente cantidad del producto")
                                     raise ValidationError(f"No hay suficiente cantidad del producto: {producto.categoria.nombre}. Disponible: {producto.cantidad}, Solicitado: {combo['cantidad']}")
                                 
-                                # Actualizamos o creamos el PaymentProduct
-                                precio_efectivo = producto_data['precio']['efectivo'] if producto_data['precio']['efectivo'] else producto_data['precio'].efectivo
-                                precio_debito = producto_data['precio']['debito'] if producto_data['precio']['debito'] else producto_data['precio'].debito
-                                precio_credito = producto_data['precio']['credito'] if producto_data['precio']['credito'] else producto_data['precio'].credito
-                                PaymentProduct.objects.create(payment=payment, producto=producto, cantidad=combo['cantidad'],
-                                                        precio_efectivo=precio_efectivo,
-                                                        precio_debito=precio_debito,
-                                                        precio_credito=precio_credito)
-                                logger.info(f"Producto añadido al pago: {producto} (cantidad: {combo['cantidad']})")
-
                                 Producto.objects.filter(id=producto.id).update(cantidad=F('cantidad') - combo['cantidad'])
-                                logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")
-
-                                payment.productos.add(producto)
                                 logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")
 
                     serializer = self.get_serializer(payment)
@@ -291,9 +278,7 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                             else:
                                 if not producto_data.get('cantidad'):
                                     producto_data['cantidad'] = PaymentProduct.objects.get(payment=instance, producto=producto).cantidad
-                                if producto.cantidad < producto_data['cantidad']:
-                                    logger.error(f"No hay suficiente cantidad del producto")
-                                    raise ValidationError(f"No hay suficiente cantidad del producto: {producto.categoria.nombre}. Disponible: {producto.cantidad}, Solicitado: {producto_data['cantidad']}")
+                                
                                 
                                 # Actualizamos o creamos el PaymentProduct
                                 payment_product = PaymentProduct.objects.filter(payment=instance.payment_id, producto=producto).first()
@@ -304,6 +289,9 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                                         'status': data['status'],
                                     }
                                     if producto_data['cantidad'] != payment_product.cantidad and data != check_data:
+                                        if producto.cantidad < producto_data['cantidad']:
+                                            logger.error(f"No hay suficiente cantidad del producto")
+                                            raise ValidationError(f"No hay suficiente cantidad del producto: {producto.categoria.nombre}. Disponible: {producto.cantidad}, Solicitado: {producto_data['cantidad']}")
                                         PaymentProduct.objects.filter(payment=instance.payment_id, producto=producto).update(cantidad=producto_data['cantidad'])
                                         logger.info(f"Se actualizó la cantidad de pedidos al producto")
                                         Producto.objects.filter(id=producto.id).update(cantidad=F('cantidad') + payment_product.cantidad - producto_data['cantidad'])
@@ -399,9 +387,6 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                             else:
                                 if not combo.get('cantidad'):
                                     combo['cantidad'] = PaymentCombo.objects.get(payment=instance, combo=combo_instance).cantidad
-                                if producto.cantidad < combo['cantidad']:
-                                    logger.error(f"No hay suficiente cantidad del producto")
-                                    raise ValidationError(f"No hay suficiente cantidad del producto: {producto.categoria.nombre}. Disponible: {producto.cantidad}, Solicitado: {combo['cantidad']}")
                                 
                                 payment_combo = PaymentCombo.objects.filter(payment=instance.payment_id, combo=combo_instance).first()
                                 check_data = {
@@ -410,6 +395,11 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                                 }
                                 if payment_combo:
                                     if combo['cantidad'] != payment_combo.cantidad and data != check_data:
+                                        
+                                        if producto.cantidad < combo['cantidad']:
+                                            logger.error(f"No hay suficiente cantidad del producto")
+                                            raise ValidationError(f"No hay suficiente cantidad del producto: {producto.categoria.nombre}. Disponible: {producto.cantidad}, Solicitado: {combo['cantidad']}")
+                                        
                                         Producto.objects.filter(id=producto.id).update(cantidad=F('cantidad') + payment_combo.cantidad - combo['cantidad'])
                                         logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")
                                     elif data == check_data:
