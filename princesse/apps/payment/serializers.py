@@ -117,3 +117,8 @@ class PaymentProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaymentProduct
         fields = "__all__"
+
+class PaymentComboSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PaymentCombo
+        fields = "__all__"

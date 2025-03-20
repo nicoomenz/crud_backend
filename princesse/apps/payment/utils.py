@@ -60,6 +60,8 @@ def generate_invoice_pdf(data):
 
     # Inicializar precio total de los productos
     total_productos = 0
+    precio_unitario = 0
+    precio_total_combo = 0
     for combo in data.get('combo', []):
         descripcion = f"{combo['marca']['nombre']} - {combo['color']['nombre']} - {combo['talle']['nombre']}"
         precio_unitario = float(combo['precio'].get(data['price_type'], 0))
@@ -69,13 +71,12 @@ def generate_invoice_pdf(data):
         for producto in combo['productos']:
             detalle = f"{producto['categoria']['nombre']} - {producto['marca']['nombre']} - {producto['color']['nombre']}"
             c.drawString(120, y_position, detalle)
-            c.drawString(300, y_position, f"{producto['cantidad']}")
+            c.drawString(300, y_position, f"{combo['cantidad']}")
             y_position -= 20
     
     c.drawString(400, y_position, f"${precio_unitario}")
     c.drawString(500, y_position, f"${precio_total_combo}")
     c.setFont("Helvetica-Bold", 14)
-    c.drawString(100, y_position - 20, "Productos Facturados:")
     c.setFont("Helvetica", 12)
     y_position -= 40
 
@@ -104,9 +105,9 @@ def generate_invoice_pdf(data):
     c.setFont("Helvetica-Bold", 12)
     c.drawString(100, description_y_position, f"Descripción:")
     c.setFont("Helvetica", 12)
-    c.drawString(100, description_y_position - 20, f"{data['description']}")
+    c.drawString(100, description_y_position - 20, f"{data['description'] if data['description'] else 'Sin descripción'}")
 
-    precio_total = precio_total_combo + total_productos + data['detail_amount']
+    precio_total = precio_total_combo + total_productos + (data['detail_amount'] if data['detail_amount'] else 0)
     # Precio total final
     final_y_position = description_y_position - 40
     c.setFont("Helvetica-Bold", 14)

@@ -61,3 +61,6 @@ class PaymentCombo(models.Model):
     payment = models.ForeignKey(Payment, on_delete=models.CASCADE)
     combo = models.ForeignKey(Combo, on_delete=models.CASCADE)
     cantidad = models.PositiveIntegerField()
+    precio_efectivo = models.DecimalField(max_digits=10, decimal_places=2)
+    precio_debito = models.DecimalField(max_digits=10, decimal_places=2)
+    precio_credito = models.DecimalField(max_digits=10, decimal_places=2)
