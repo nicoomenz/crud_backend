@@ -107,7 +107,7 @@ def generate_invoice_pdf(data):
     c.setFont("Helvetica", 12)
     c.drawString(100, description_y_position - 20, f"{data['description'] if data['description'] else 'Sin descripción'}")
 
-    precio_total = precio_total_combo + total_productos + (data['detail_amount'] if data['detail_amount'] else 0)
+    precio_total = precio_total_combo + total_productos + float(data['detail_amount'] if data['detail_amount'] else 0)
     # Precio total final
     final_y_position = description_y_position - 40
     c.setFont("Helvetica-Bold", 14)
