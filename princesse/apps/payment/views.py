@@ -289,7 +289,6 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                                     logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")
                                 logger.info(f"Cantidad de producto devuelta: {producto.categoria.nombre}, nueva cantidad: {producto.cantidad}")
                             else:
-                                breakpoint()
                                 if not producto_data.get('cantidad'):
                                     producto_data['cantidad'] = PaymentProduct.objects.get(payment=instance, producto=producto).cantidad
                                 if producto.cantidad < producto_data['cantidad']:
@@ -352,7 +351,6 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                         combos_data = instance.combo.all()
                     
                     for combo in combos_data:
-                        breakpoint()
                         if isinstance(combo, Combo):
                             combo = {
                                 'id': combo.id,
@@ -399,7 +397,6 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                                     producto.save()
                                 logger.info(f"Cantidad de producto devuelta: {producto.categoria.nombre}, nueva cantidad: {producto.cantidad}")
                             else:
-                                breakpoint()
                                 if not combo.get('cantidad'):
                                     combo['cantidad'] = PaymentCombo.objects.get(payment=instance, combo=combo_instance).cantidad
                                 if producto.cantidad < combo['cantidad']:
@@ -417,7 +414,6 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                                         logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")
                                     elif data == check_data:
                                         if previous_status == 'DEVUELTO' and request.data['status'] != 'DEVUELTO':
-                                            breakpoint()
                                             Producto.objects.filter(id=producto.id).update(cantidad=F('cantidad') - payment_combo.cantidad)
                                             logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")                              
 
