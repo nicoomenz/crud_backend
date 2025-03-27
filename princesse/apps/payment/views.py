@@ -473,7 +473,6 @@ class PaymentsViewSet(viewsets.ModelViewSet):
         if not data['payment_id']:
             data['payment_id'] = Payment.objects.all().last().payment_id
         pdf_buffer = generate_invoice_pdf(data)
-
         # Asegúrate de que el contenido sea 'application/pdf'
         response = HttpResponse(pdf_buffer, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename=recibo_{data["payment_id"]}.pdf'
