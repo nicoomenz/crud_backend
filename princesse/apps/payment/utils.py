@@ -2,13 +2,14 @@ from reportlab.lib.pagesizes import letter, A3, landscape
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 from io import BytesIO
-import os.path
+from django.conf import settings
+import os
 
 def generate_invoice_pdf(data):
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=letter)
     width, height = letter
-    logo_path = os.path.join(os.path.dirname('/home/nico/MyProjects/princesse/princesse_bd_backend/princesse/static/images/'), 'dress.jpeg')
+    logo_path = os.path.join(settings.STATIC_ROOT, 'images', 'dress.jpeg')
     
     def check_page_overflow(y_position, threshold=50):
         """Check if the content exceeds the page and create a new page if necessary."""
@@ -105,7 +106,7 @@ def generate_invoice_pdf(data):
         c.drawString(500, y_position, f"${precio_por_producto}")
 
         total_productos += precio_por_producto
-        y_position -= 20  # Espacio para el siguiente producto
+        y_position -= 40  # Espacio para el siguiente producto
     
     y_position = check_page_overflow(y_position)
     # Descripción
