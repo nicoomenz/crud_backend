@@ -37,12 +37,7 @@ class Payment(models.Model):
     # Relación ManyToMany con las prendas
     productos = models.ManyToManyField(Producto, blank=True)  # Puede haber cero o más productos
     combo = models.ManyToManyField(Combo, blank=True)  # Puede haber cero o más trajes
-    custom_products = models.ManyToManyField(
-        CustomProduct, 
-        related_name="payments", 
-        blank=True
-    )
-
+    #tener varios custom products, pero que ese custom product sea solo para este payment
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
@@ -56,6 +51,7 @@ class PaymentProduct(models.Model):
     precio_efectivo = models.DecimalField(max_digits=10, decimal_places=2)
     precio_debito = models.DecimalField(max_digits=10, decimal_places=2)
     precio_credito = models.DecimalField(max_digits=10, decimal_places=2)
+    is_active = models.BooleanField(default=True)
 
 class PaymentCombo(models.Model):
     payment = models.ForeignKey(Payment, on_delete=models.CASCADE)
@@ -64,3 +60,4 @@ class PaymentCombo(models.Model):
     precio_efectivo = models.DecimalField(max_digits=10, decimal_places=2)
     precio_debito = models.DecimalField(max_digits=10, decimal_places=2)
     precio_credito = models.DecimalField(max_digits=10, decimal_places=2)
+    is_active = models.BooleanField(default=True)

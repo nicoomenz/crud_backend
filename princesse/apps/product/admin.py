@@ -32,7 +32,7 @@ class ProductoAdmin(admin.ModelAdmin):
 @admin.register(PrecioProducto)
 class PrecioProductoAdmin(admin.ModelAdmin):
     fields = ('categoria', 'marca', 'efectivo', 'debito', 'credito')  # Incluye todos los campos
-    list_display = ('categoria', 'marca', 'efectivo', 'debito', 'credito')
+    list_display = ('id', 'categoria', 'marca', 'efectivo', 'debito', 'credito')
     search_fields = ('categoria__nombre', 'marca__nombre')  # Búsqueda
     list_filter = ('categoria', 'marca')  # Filtros en el admin
 

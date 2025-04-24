@@ -2,7 +2,7 @@ import json
 from django.forms import ValidationError
 from django.shortcuts import get_object_or_404, render
 from payment.models import *
-from payment.serializers import PaymentProductSerializer, PaymentSerializer
+from payment.serializers import PaymentProductSerializer, PaymentSerializer, PaymentComboSerializer
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from django.db import transaction
@@ -81,6 +81,43 @@ class PaymentProductViewSet(viewsets.ModelViewSet):
                 {"error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
+    
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.is_active:
+            instance.is_active = False
+            instance.save()
+            return Response(
+                {"detail": f"El producto con ID {instance.producto.id} fue eliminado."},
+                status=status.HTTP_200_OK,
+            )
+        else:
+            return Response(
+                {"detail": f"El producto con ID {instance.producto.id} ya fue eliminado."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+class CustomProductViewSet(viewsets.ModelViewSet):
+    queryset = CustomProduct.objects.all()
+    serializer_class = PaymentComboSerializer
+    def get_queryset(self):
+        # Retornar solo los usuarios activos
+            return super().get_queryset().filter(is_active=True)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.is_active:
+            instance.is_active = False
+            instance.save()
+            return Response(
+                {"detail": f"El producto con ID {instance.id} fue eliminado."},
+                status=status.HTTP_200_OK,
+            )
+        else:
+            return Response(
+                {"detail": f"El producto con ID {instance.id} ya fue eliminado."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 class PaymentsViewSet(viewsets.ModelViewSet):
 
@@ -149,6 +186,7 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                         else:
                             # Producto simple => CustomProduct
                             custom_product = CustomProduct.objects.create(
+                                payment=payment,
                                 name=producto_data['name'],
                                 color=producto_data.get('color'),
                                 talle=producto_data.get('talle'),
@@ -321,6 +359,7 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                         else:
                             # Producto simple => CustomProduct
                             custom_product, _ = CustomProduct.objects.update_or_create(
+                                payment=instance,
                                 name=producto_data['name'],
                                 color=producto_data.get('color'),
                                 talle=producto_data.get('talle'),
@@ -444,6 +483,39 @@ class PaymentsViewSet(viewsets.ModelViewSet):
     
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
+        if instance.status != 'DEVUELTO':
+            
+            #si tengo productos borro productos, si tengo customproductos tambien
+            #si tengo combos borro combos
+            # Eliminar los productos asociados al recibo
+            if instance.productos.exists():
+                for producto in instance.productos.all():
+                    # Aumentar la cantidad del producto
+                    
+                    producto.cantidad += PaymentProduct.objects.filter(payment=instance, producto=producto).first().cantidad
+                    producto.save()
+                    
+                    #poner el paymentproduct en inactive llamando a la clase PaymentProduct
+                    PaymentProduct.objects.filter(payment=instance, producto=producto).update(is_active=False)
+                    logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")
+
+            
+            if instance.custom_products.exists():
+                for custom_product in instance.custom_products.all():
+                    # Aumentar la cantidad del producto
+                    CustomProduct.objects.filter(payment=instance, id=custom_product.id).update(is_active=False)
+                    logger.info(f"Cantidad actualizada para producto {custom_product.id}: {custom_product.cantidad}")
+
+            if instance.combo.exists():
+                for combo in instance.combo.all():
+                    # Aumentar la cantidad del producto
+                    
+                    for producto in combo.productos.all():
+                        producto.cantidad += PaymentCombo.objects.filter(payment=instance, combo=combo).first().cantidad
+                        producto.save()
+                        logger.info(f"Cantidad actualizada para producto {producto.id}: {producto.cantidad}")
+                    PaymentCombo.objects.filter(payment=instance, combo=combo).update(is_active=False)
+        
         instance.is_active = False
         instance.save()
                 
