@@ -29,7 +29,6 @@ def generate_invoice_pdf(data):
         c.setFont("Helvetica-Bold", 16)
         c.drawString(100, height - 40, "Princesse")
         c.setFont("Helvetica", 12)
-        c.drawString(100, height - 55, "El palacio de las novias")
         c.drawString(100, height - 70, "Alquiler y ventas")
         c.setFont("Helvetica-Oblique", 10)
         c.drawString(100, height - 85, "de Mónica Renata Fernandez")
@@ -102,7 +101,10 @@ def generate_invoice_pdf(data):
 
         c.drawString(60, y_position, descripcion)
         c.drawString(60, y_position-10, f"cantidad: {producto['cantidad']}")
-        c.drawString(60, y_position-20, f"color: {producto['color']['nombre']}")
+        if 'nombre' in producto['color']:
+            c.drawString(60, y_position - 20, f"color: {producto['color']['nombre']}")
+        else:
+            c.drawString(60, y_position - 20, f"color: {producto['color']}")
         c.drawString(500, y_position, f"${precio_por_producto}")
 
         total_productos += precio_por_producto
