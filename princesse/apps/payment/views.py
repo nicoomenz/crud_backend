@@ -528,7 +528,7 @@ class PaymentsViewSet(viewsets.ModelViewSet):
     def send_receipt_email(self, request):
         # Obtener los datos del cuerpo de la solicitud
         data = request.data
-        if not data['payment_id']:
+        if not data['payment_id'] or data['payment_id'] == 0:
             data['payment_id'] = Payment.objects.all().last().payment_id
         # Generar el PDF
         pdf_buffer = generate_invoice_pdf(data)
@@ -542,7 +542,7 @@ class PaymentsViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='download-receipt')
     def download_receipt(self, request):
         data = request.data
-        if not data['payment_id']:
+        if not data['payment_id'] or data['payment_id'] == 0:
             data['payment_id'] = Payment.objects.all().last().payment_id
         pdf_buffer = generate_invoice_pdf(data)
         # Asegúrate de que el contenido sea 'application/pdf'
