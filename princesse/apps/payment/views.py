@@ -533,7 +533,7 @@ class PaymentsViewSet(viewsets.ModelViewSet):
         # Generar el PDF
         pdf_buffer = generate_invoice_pdf(data)
         # Enviar el correo
-        email = EmailMessage( subject=f"Recibo de Pago #{data['payment_id']}", body="Adjuntamos su recibo en formato PDF.", from_email="conico.company@gmail.com", to=[data['client']['email']],)
+        email = EmailMessage( subject=f"Recibo de Pago #{data['payment_id']}", body="Adjuntamos su recibo en formato PDF.", from_email="princesse.altacostura@gmail.com", to=[data['client']['email']],)
         email.attach(f"recibo_{data['payment_id']}.pdf", pdf_buffer.read(), "application/pdf")
         email.send()
 
