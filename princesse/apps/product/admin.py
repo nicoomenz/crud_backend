@@ -46,4 +46,4 @@ class ComboAdmin(admin.ModelAdmin):
 
 @admin.register(CustomProduct)
 class CustomProductAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'color', 'talle', 'cantidad', 'precio')
+    list_display = ('id', 'payment', 'name', 'color', 'talle', 'cantidad', 'precio')

@@ -46,7 +46,7 @@ class ClientPayer(models.Model):
     first_name = models.CharField(_('Nombre'), max_length=30)
     last_name = models.CharField(_('Apellido'), max_length=30)
     direccion = models.CharField(_('Direccion'), max_length=100, default="")
-    email = models.EmailField(_("Direccion de email"), max_length=254)
+    email = models.EmailField(_("Direccion de email"), max_length=254, blank=True, null=True)
     phone = models.CharField(_('Telefono'), max_length=25, blank=True, null=True)
     iva = models.CharField(max_length=30, choices=IVA_CHOICES, default=IVA_CHOICES[0][0], blank=True, null=True)
     is_active = models.BooleanField(default=True)
