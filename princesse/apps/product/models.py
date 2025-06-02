@@ -206,5 +206,5 @@ class Combo(models.Model):
     active = models.BooleanField(default=True)
 
     def __str__(self):
-        return f"{self.marca.nombre} - {self.color.nombre} - {self.talle.nombre}"
+        return f"{self.color.nombre} - {self.talle.nombre}"
     
