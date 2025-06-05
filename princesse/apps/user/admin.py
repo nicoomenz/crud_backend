@@ -5,7 +5,7 @@ from user.models import *
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
-    list_display = ('id', 'email')
+    list_display = ('id', 'username', 'email')
 @admin.register(ClientPayer)
 class ClientPayerAdmin(admin.ModelAdmin):
     list_display = ('id', 'dni', 'first_name', 'last_name', 'phone')

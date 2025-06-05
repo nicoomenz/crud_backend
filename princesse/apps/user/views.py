@@ -8,7 +8,13 @@ from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from django.contrib.auth import login, logout
 from django_filters.rest_framework import DjangoFilterBackend
-# Create your views here.
+from rest_framework_simplejwt.views import TokenObtainPairView
+from .serializers import CustomTokenObtainPairSerializer
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
+    
+
 
 class UserLoginView(APIView):
     permission_classes = [AllowAny]

@@ -41,7 +41,7 @@ class ClientPayer(models.Model):
         ('EXENTO', 'EXENTO'),
         ('CONSUMIDOR_FINAL', 'CONSUMIDOR FINAL')
     )
-    dni = models.CharField(_("DNI"), max_length=10)
+    dni = models.CharField(_("DNI"), max_length=10, unique=True)
     cuit = models.CharField(_("CUIT"), max_length=15, blank=True, null=True)
     first_name = models.CharField(_('Nombre'), max_length=30)
     last_name = models.CharField(_('Apellido'), max_length=30)

@@ -198,7 +198,7 @@ class CustomProduct(models.Model):
 
 class Combo(models.Model):
 
-    marca = models.ForeignKey(Marca, on_delete=models.CASCADE, blank=True, null=True)
+    marca = models.ForeignKey(Marca, on_delete=models.CASCADE)
     color = models.ForeignKey(Color, on_delete=models.CASCADE)
     talle = models.ForeignKey(Talle, on_delete=models.CASCADE)
     productos = models.ManyToManyField(Producto, blank=True)
