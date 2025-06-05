@@ -17,6 +17,8 @@ from payment.utils import generate_invoice_pdf
 
 import logging
 
+from user.serializers import ClientPayerSerializer
+
 logger = logging.getLogger(__name__)
 
 class PaymentProductViewSet(viewsets.ModelViewSet):
@@ -141,9 +143,17 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                     client_data = data.pop('client')
                     if client_data.get('id') == 0:
                         client_data.pop('id')
-                    client, created = ClientPayer.objects.get_or_create(**client_data)
-                    logger.info(f"Cliente {'creado' if created else 'encontrado'}: {client}")
-
+                    client = ClientPayer.objects.filter(id=client_data.get('id'), dni=client_data['dni']).first()
+                    if not client:
+                        client_serializer = ClientPayerSerializer(data=client_data)
+                        if client_serializer.is_valid():
+                            client = client_serializer.save()
+                            logger.info(f"Cliente creado: {client}")
+                        else:
+                            logger.error(f"Error al crear el cliente: {client_serializer.errors}")
+                            return Response(client_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    else: 
+                        logger.info(f"Cliente encontrado: {client}")
                     # Crear el pago
                     productos_data = data.pop('productos', [])
                     combo_data = data.pop('combo', [])
