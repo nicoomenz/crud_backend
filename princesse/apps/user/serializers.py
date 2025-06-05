@@ -1,6 +1,8 @@
 from django.contrib.auth import authenticate
 from user.models import *
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import RefreshToken
+import re
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -54,7 +56,7 @@ class ClientPayerDetailSerializer(serializers.Serializer):
     first_name = serializers.CharField(max_length=30)
     last_name = serializers.CharField(max_length=30)
     direccion = serializers.CharField(max_length=100, default="")
-    email = serializers.EmailField(max_length=254)
+    email = serializers.EmailField(max_length=254, required=False, allow_blank=True, allow_null=True)
     phone = serializers.CharField(max_length=25, allow_blank=True, allow_null=True)
     iva = serializers.ChoiceField(choices=[
         ('RESPONSABLE_INSCRIPTO', 'RESPONSABLE INSCRIPTO'),
@@ -79,3 +81,36 @@ class ClientPayerSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClientPayer
         fields = '__all__'
+
+
+class CustomTokenObtainPairSerializer(serializers.Serializer):
+    username_or_email = serializers.CharField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        login = attrs.get("username_or_email")
+        password = attrs.get("password")
+
+        # Buscar por email si tiene formato de email
+        if re.match(r"[^@]+@[^@]+\.[^@]+", login):
+            try:
+                user_obj = User.objects.get(email=login)
+                username = user_obj.get_username()
+            except User.DoesNotExist:
+                raise serializers.ValidationError("No existe un usuario con ese email")
+        else:
+            username = login
+
+        user = authenticate(username=username, password=password)
+
+        if not user:
+            raise serializers.ValidationError("Credenciales inválidas")
+
+        refresh = RefreshToken.for_user(user)
+
+        return {
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+            'email': user.email,
+            'user_id': user.id
+        }

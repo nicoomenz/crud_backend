@@ -13,6 +13,11 @@ class Payment(models.Model):
         ('DEVUELTO', 'DEVUELTO'),
     )
 
+    PAYMENT_TYPE = (
+        ('ALQUILER', 'ALQUILER'),
+        ('VENTA', 'VENTA'),
+    )
+
     PRICE_TYPE_CHOICES = (
         ('efectivo', 'Efectivo'),
         ('debito', 'Débito'),
@@ -20,6 +25,7 @@ class Payment(models.Model):
     )
     
     payment_id= models.AutoField(('ID'), primary_key=True, editable=False)
+    payment_type = models.CharField(('Tipo de pago'), max_length=10, choices=PAYMENT_TYPE, default=PAYMENT_TYPE[0][0])
     payment_date= models.DateField(_("Fecha de recibo"), auto_now_add=True)
     client = models.ForeignKey(ClientPayer, on_delete=models.CASCADE, null=True, blank=True)
     small_amount_ok = models.BooleanField(('Seña pagada'), default=False)
@@ -29,6 +35,7 @@ class Payment(models.Model):
     total_amount = models.DecimalField(('Monto total'), max_digits=10, decimal_places=2)
     pick_up_date = models.DateField(_("Fecha de retiro"), null=True, blank=True)
     return_date = models.DateField(_("Fecha de devolución"), null=True, blank=True)
+    test_date = models.DateField(_("Fecha de prueba"), null=True, blank=True)
     status = models.CharField(('Estado'), max_length=30, choices=STATUS_CHOICES, default=STATUS_CHOICES[0][0], blank=True, null=True)
     description = models.CharField(_("Descripción"),max_length=50,blank=True, null=True)
     descuento = models.IntegerField(('Descuento'), default=0)

@@ -17,6 +17,8 @@ from payment.utils import generate_invoice_pdf
 
 import logging
 
+from user.serializers import ClientPayerSerializer
+
 logger = logging.getLogger(__name__)
 
 class PaymentProductViewSet(viewsets.ModelViewSet):
@@ -141,9 +143,18 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                     client_data = data.pop('client')
                     if client_data.get('id') == 0:
                         client_data.pop('id')
-                    client, created = ClientPayer.objects.get_or_create(**client_data)
-                    logger.info(f"Cliente {'creado' if created else 'encontrado'}: {client}")
-
+                    client = ClientPayer.objects.filter(dni=client_data['dni'], first_name=client_data['first_name'],
+                    last_name=client_data['last_name']).first()
+                    if not client:
+                        client_serializer = ClientPayerSerializer(data=client_data)
+                        if client_serializer.is_valid():
+                            client = client_serializer.save()
+                            logger.info(f"Cliente creado: {client}")
+                        else:
+                            logger.error(f"Error al crear el cliente: {client_serializer.errors}")
+                            return Response(client_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    else: 
+                        logger.info(f"Cliente encontrado: {client}")
                     # Crear el pago
                     productos_data = data.pop('productos', [])
                     combo_data = data.pop('combo', [])
@@ -305,7 +316,13 @@ class PaymentsViewSet(viewsets.ModelViewSet):
         return Response(
             {"detail": f"El recibo con ID {instance.payment_id} fue eliminado."},
             status=status.HTTP_200_OK,
-        ) 
+        )
+
+    @action(detail=False, methods=['get'], url_path='recibos-venta')
+    def get_payment_sold(self, request):
+        queryset = Payment.objects.filter(payment_type='VENTA', is_active=True)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
         
     @action(detail=False, methods=['post'], url_path='send-receipt-email')
     def send_receipt_email(self, request):

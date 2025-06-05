@@ -145,7 +145,7 @@ class ProductDetailSerializer(serializers.Serializer):
     cantidad = serializers.IntegerField(write_only=True)
 
     class Meta:
-        fields = ['categoria', 'marca', 'color', 'talle', 'tela', 'cantidad','precio']
+        fields = ['type', 'categoria', 'marca', 'color', 'talle', 'tela', 'cantidad','precio']
 
 class SimpleProductSerializer(serializers.Serializer):
     """Producto simple (sin categoría, solo atributos básicos)."""
@@ -258,6 +258,7 @@ class ProductoSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         # Aquí se asegura que todos los campos sean serializados correctamente
+        data['type'] = instance.type
         data['categoria'] = CategoriaSerializer(instance.categoria).data
         data['marca'] = MarcaSerializer(instance.marca).data if instance.marca else None
         data['color'] = ColorSerializer(instance.color).data
@@ -318,7 +319,7 @@ class ComboDetailSerializer(serializers.Serializer):
     cantidad = serializers.IntegerField(write_only=True)
 
     class Meta:
-        fields = ['id', 'marca', 'productos', 'color', 'talle', 'tela', 'precio', 'cantidad']
+        fields = ['id', 'type', 'marca', 'productos', 'color', 'talle', 'tela', 'precio', 'cantidad']
 
 class ComboSerializer(serializers.ModelSerializer):
     marca = PrimaryKeyOrNameRelatedField(queryset=Marca.objects.all(), allow_null=True)

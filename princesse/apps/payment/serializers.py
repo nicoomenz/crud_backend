@@ -26,16 +26,18 @@ class PaymentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Payment
-        fields = ['payment_id','payment_date', 'client', 'small_amount_ok', 'small_amount', 'subtotal_amount', 'descuento', 'detail_amount',  
-                  'total_amount', 'pick_up_date', 'return_date', 'price_type', 'description', 'status', 'productos', 'combo']
+        fields = ['payment_id', 'payment_type', 'payment_date', 'client', 'small_amount_ok', 'small_amount', 'subtotal_amount', 'descuento', 'detail_amount',  
+                  'total_amount', 'pick_up_date', 'return_date', 'test_date', 'price_type', 'description', 'status', 'productos', 'combo']
 
     def to_internal_value(self, data):
         # Validar y convertir las fechas antes de todo lo demás
-        for date_field in ['pick_up_date', 'return_date']:
+        for date_field in ['pick_up_date', 'return_date', 'test_date']:
+            
             if date_field in data:
                 try:
                     # Convertir de DD/MM/YYYY a objeto `date`
-                    data[date_field] = datetime.strptime(data[date_field], "%d/%m/%Y").date()
+                    if data[date_field]:
+                        data[date_field] = datetime.strptime(data[date_field], "%d/%m/%Y").date()
                 except ValueError:
                     raise serializers.ValidationError({
                         date_field: "Formato de fecha inválido. Use DD/MM/YYYY."
@@ -64,8 +66,10 @@ class PaymentSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
+        data['payment_type'] = instance.payment_type
         data['payment_date'] = instance.payment_date.strftime('%d/%m/%Y') if instance.payment_date else None
         data['pick_up_date'] = instance.pick_up_date.strftime('%d/%m/%Y') if instance.pick_up_date else None
+        data['test_date'] = instance.test_date.strftime('%d/%m/%Y') if instance.test_date else None
         data['return_date'] = instance.return_date.strftime('%d/%m/%Y') if instance.return_date else None
         productos_representation = []
         for producto in instance.productos.all():
@@ -87,6 +91,7 @@ class PaymentSerializer(serializers.ModelSerializer):
             payment_combo = PaymentCombo.objects.filter(payment=instance, combo=combo).first()
             combo_data = {
                 'id': combo.id,
+                'type': combo.type,
                 'marca': MarcaSerializer(combo.marca).data if combo.marca else None,
                 'color': ColorSerializer(combo.color).data,
                 'talle': TalleSerializer(combo.talle).data,
@@ -97,6 +102,7 @@ class PaymentSerializer(serializers.ModelSerializer):
             for producto in combo.productos.all():  # O la relación adecuada para obtener los productos del combo
                 payment_product = PaymentProduct.objects.filter(payment=instance, producto=producto).first()
                 producto_data = {
+                    'type': producto.type,
                     'categoria': CategoriaSerializer(producto.categoria).data,
                     'marca': MarcaSerializer(producto.marca).data if producto.marca else None,
                     'color': ColorSerializer(producto.color).data,
@@ -119,16 +125,18 @@ class PaymentUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Payment
-        fields = ['payment_id', 'payment_date', 'small_amount_ok', 'small_amount', 'subtotal_amount', 'descuento', 'detail_amount',  
-                  'total_amount', 'pick_up_date', 'return_date', 'price_type', 'description', 'status', 'productos', 'combo']
+        fields = ['payment_id', 'payment_type', 'payment_date', 'small_amount_ok', 'small_amount', 'subtotal_amount', 'descuento', 'detail_amount',  
+                  'total_amount', 'pick_up_date', 'return_date', 'test_date', 'price_type', 'description', 'status', 'productos', 'combo']
 
     def to_internal_value(self, data):
         # Validar y convertir las fechas antes de todo lo demás
-        for date_field in ['pick_up_date', 'return_date']:
+        for date_field in ['pick_up_date', 'return_date', 'test_date']:
+            
             if date_field in data:
                 try:
                     # Convertir de DD/MM/YYYY a objeto `date`
-                    data[date_field] = datetime.strptime(data[date_field], "%d/%m/%Y").date()
+                    if data[date_field]:
+                        data[date_field] = datetime.strptime(data[date_field], "%d/%m/%Y").date()
                 except ValueError:
                     raise serializers.ValidationError({
                         date_field: "Formato de fecha inválido. Use DD/MM/YYYY."
@@ -172,8 +180,10 @@ class PaymentUpdateSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
+        data['payment_type'] = instance.payment_type
         data['payment_date'] = instance.payment_date.strftime('%d/%m/%Y') if instance.payment_date else None
         data['pick_up_date'] = instance.pick_up_date.strftime('%d/%m/%Y') if instance.pick_up_date else None
+        data['test_date'] = instance.test_date.strftime('%d/%m/%Y') if instance.test_date else None
         data['return_date'] = instance.return_date.strftime('%d/%m/%Y') if instance.return_date else None
         productos_representation = []
         for producto in instance.productos.all():
