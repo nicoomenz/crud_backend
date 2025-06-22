@@ -143,7 +143,8 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                     client_data = data.pop('client')
                     if client_data.get('id') == 0:
                         client_data.pop('id')
-                    client = ClientPayer.objects.filter(id=client_data.get('id'), dni=client_data['dni']).first()
+                    client = ClientPayer.objects.filter(dni=client_data['dni'], first_name=client_data['first_name'],
+                    last_name=client_data['last_name']).first()
                     if not client:
                         client_serializer = ClientPayerSerializer(data=client_data)
                         if client_serializer.is_valid():
@@ -315,7 +316,13 @@ class PaymentsViewSet(viewsets.ModelViewSet):
         return Response(
             {"detail": f"El recibo con ID {instance.payment_id} fue eliminado."},
             status=status.HTTP_200_OK,
-        ) 
+        )
+
+    @action(detail=False, methods=['get'], url_path='recibos-venta')
+    def get_payment_sold(self, request):
+        queryset = Payment.objects.filter(payment_type='VENTA', is_active=True)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
         
     @action(detail=False, methods=['post'], url_path='send-receipt-email')
     def send_receipt_email(self, request):

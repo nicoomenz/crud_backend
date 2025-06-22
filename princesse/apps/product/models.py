@@ -150,7 +150,7 @@ class PrecioCombo(Precio):
         return cls.objects.all()
 
 class Producto(models.Model):
-
+    type = models.CharField(_("Tipo"), max_length=10, default="producto")
     categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE)
     marca = models.ForeignKey(Marca, on_delete=models.CASCADE, blank=True, null=True)
     color = models.ForeignKey(Color, on_delete=models.CASCADE)
@@ -197,7 +197,7 @@ class CustomProduct(models.Model):
         return self.name  
 
 class Combo(models.Model):
-
+    type = models.CharField(_("Tipo"), max_length=10, default="combo")
     marca = models.ForeignKey(Marca, on_delete=models.CASCADE)
     color = models.ForeignKey(Color, on_delete=models.CASCADE)
     talle = models.ForeignKey(Talle, on_delete=models.CASCADE)
