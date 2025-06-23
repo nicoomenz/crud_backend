@@ -269,14 +269,14 @@ class ProductoSerializer(serializers.ModelSerializer):
         return data
 
 class VarianteCompactaSerializer(serializers.Serializer):
-    id = serializers.IntegerField()
     color = ColorSerializer()
     talles = serializers.SerializerMethodField()
 
     def get_talles(self, obj):
         talles = obj['talles']
         return [
-            {   
+            {
+                "id": talle['id'],
                 "talle": TalleSerializer(talle['nombre']).data,
                 "cantidad": talle['cantidad']
             }
@@ -293,16 +293,19 @@ class ProductoCompactoSerializer(serializers.Serializer):
     def get_variantes(self, obj):
         productos = obj['productos']
         variantes = {}
-        
+
         for producto in productos:
-            id = producto['id']
             color = producto['producto'].color
             if color not in variantes:
-                variantes[color] = {'id': id, 'color': color, 'talles': []}
+                variantes[color] = {
+                    'color': color,
+                    'talles': []
+                }
+
             variantes[color]['talles'].append({
+                'id': producto['id'],  # ID específico de esta combinación
                 'nombre': producto['producto'].talle,
                 'cantidad': producto['producto'].cantidad,
-                
             })
 
         return VarianteCompactaSerializer(variantes.values(), many=True).data

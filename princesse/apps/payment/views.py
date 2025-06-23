@@ -161,7 +161,6 @@ class PaymentsViewSet(viewsets.ModelViewSet):
                     payment = Payment.objects.create(client=client, **data)
                     logger.info(f"Pago creado con ID: {payment.payment_id}")
                     # Procesar productos
-                    
                     for producto_data in productos_data:
                         if 'categoria' in producto_data:
                             logger.info(f"Procesando producto: {producto_data}")
