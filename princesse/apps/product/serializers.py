@@ -26,13 +26,29 @@ class ColorSerializer(serializers.ModelSerializer):
 
 class PrimaryKeyOrNameRelatedField(serializers.PrimaryKeyRelatedField):
     def to_internal_value(self, data):
+        queryset = self.get_queryset()
+
         if isinstance(data, dict):
-            data = data.get('id', data.get('nombre'))
-        
-        try:
-            return self.get_queryset().get(pk=data)
-        except (TypeError, ValueError, self.get_queryset().model.DoesNotExist):
-            return self.get_queryset().get(nombre=data)
+            if 'id' in data:
+                return super().to_internal_value(data['id'])
+            elif 'nombre' in data:
+                try:
+                    return queryset.get(nombre=data['nombre'])
+                except queryset.model.DoesNotExist:
+                    raise serializers.ValidationError("No se encontró un objeto con ese nombre.")
+            else:
+                raise serializers.ValidationError("Debe incluir 'id' o 'nombre'.")
+        elif isinstance(data, str):
+            # Entra acá si por ejemplo data = "negro"
+            try:
+                return queryset.get(nombre=data)
+            except queryset.model.DoesNotExist:
+                raise serializers.ValidationError("No se encontró un objeto con ese nombre.")
+        elif isinstance(data, int):
+            return super().to_internal_value(data)
+
+        raise serializers.ValidationError("Formato de entrada no válido.")
+            
 
 class PrimaryKeyforPrecio(serializers.PrimaryKeyRelatedField):
     def to_internal_value(self, data):
