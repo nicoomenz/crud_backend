@@ -22,6 +22,7 @@ class Payment(models.Model):
         ('efectivo', 'Efectivo'),
         ('debito', 'Débito'),
         ('credito', 'Crédito'),
+        ('dolares', 'Dolares'),
     )
     
     payment_id= models.AutoField(('ID'), primary_key=True, editable=False)
