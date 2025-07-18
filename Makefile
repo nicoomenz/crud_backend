@@ -1,6 +1,6 @@
 # Constants
-SRC=princesse_bd_backend
-API_NAME=princesse_bd_backend_web_1
+SRC=crud_bd_backend
+API_NAME=crud_bd_backend_web_1
 
 # Commands
 compose_cmd = docker-compose -f ./docker-compose.yml --env-file=.env

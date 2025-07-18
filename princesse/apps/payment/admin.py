@@ -5,7 +5,7 @@ from payment.models import *
 
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ('payment_id', 'pick_up_date', 'return_date', 'client', 'small_amount', 'total_amount')
+    list_display = ('payment_id', 'payment_date', 'pick_up_date', 'return_date', 'client', 'small_amount', 'total_amount')
     search_fields = ('payment_id', 'client__first_name', )  # Búsqueda
     list_filter = ('pick_up_date', 'return_date')  # Filtros en el admin
 

@@ -1,1 +1,1 @@
-PROJECT_NAME = "princesse_bd_backend"
+PROJECT_NAME = "crud_bd_backend"

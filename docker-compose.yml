@@ -1,5 +1,3 @@
-version: '3.1'
-
 services:
   db:
     image: postgres:latest
@@ -13,9 +11,8 @@ services:
   
   pgadmin:
     image: dpage/pgadmin4
-    environment:
-      PGADMIN_DEFAULT_EMAIL: "admin@admin.com"
-      PGADMIN_DEFAULT_PASSWORD: "admin"
+    env_file:
+      - .env
     ports:
       - "80:80"
     depends_on:
@@ -28,7 +25,9 @@ services:
       - .:/code
     ports:
       - "8000:8000"
-    stdin_open: true   # Habilita stdin
-    tty: true          # Mantiene la terminal abierta
+    env_file:
+      - .env
+    stdin_open: true
+    tty: true
     depends_on:
       - db
